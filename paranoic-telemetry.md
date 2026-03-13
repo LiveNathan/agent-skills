@@ -98,6 +98,10 @@ class ServiceNameClientTest {
 
 ---
 
+Step 5 (after writing tests, if tests were written): Reflect briefly on the session. Did any test cases come up that the checklist doesn't cover? Did the workflow break down or produce something awkward? If so, propose a specific, minimal edit to this skill file - a new checklist item, a clarification, or a correction. Do not propose edits for things that already worked well. Present the proposal and ask whether to apply it.
+
+---
+
 ## Background
 
 From Shore:
@@ -117,3 +121,13 @@ silently or cryptically.
 Reference implementation: Shore's ROT-13 client from the
 ["Microservice Clients Without Mocks, Part 2" livestream](https://www.jamesshore.com/v2/projects/nullables/testing-without-mocks),
 tag `2020-09-01` on [github.com/jamesshore/livestream](https://github.com/jamesshore/livestream).
+
+---
+
+## Known Edge Cases
+
+*This section is maintained by the skill itself. Each entry is a generalized lesson
+from a real session, added only when the workflow produced something awkward or missed
+something real.*
+
+<!-- Add entries here as: - [context] lesson learned -->
