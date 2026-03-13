@@ -32,12 +32,13 @@ The goal is the minimum effective test suite - enough to catch real failures, ea
 
 ### Happy Path
 
-- [ ] **Makes request** - the outgoing call has the correct method, path, headers, and body
-- [ ] **Parses response** - the correct value is extracted and returned from a valid response
-- [ ] **Tracks requests** *(if using Shore's Nullable Infrastructure Wrapper)* - trackability works
+- [ ] **Returns expected output** - given valid input, the method returns the expected result
+- [ ] **Handles the primary use case** - the core behavior works end to end
+- [ ] **Tracks calls** *(if using Shore's Nullable Infrastructure Wrapper)* - observability works
 
-If the endpoint handles collections, consider Zero-One-Many for happy path inputs:
-zero items, one item, many items. Only add these if they would catch a real bug.
+If the method handles collections, consider Zero-One-Many for inputs: zero items, one item, many items. Only add these if they would catch a real bug.
+
+*Example (HTTP client): the outgoing request has the correct method, path, headers, and body; the response is correctly parsed and returned.*
 
 ### Failure Paths ← the Paranoic Telemetry core
 
@@ -54,43 +55,22 @@ Each thrown exception must include a **rich error message** (see below).
 
 ### Nullability *(only if using Shore's Nullable Infrastructure Wrapper pattern)*
 
-- [ ] **Default null response** - `createNull()` returns a sensible default without
-      making real network calls
-- [ ] **Configurable null response** - `createNull({ response: "..." })` works
+- [ ] **Parameterless instantiation** - `createNull()` works without any arguments, even if the production `create()` requires them
+- [ ] **Isolation** - a Nulled instance does not talk to the network or any external system
+- [ ] **Default response** - calling a read method on a Nulled instance returns a sensible default rather than failing or returning null
+- [ ] **Configurable responses** - `createNull()` can be configured to return specific values; if multiple calls are expected, it can return a sequence of responses or responses keyed by endpoint
+- [ ] **Output tracking** - if the wrapper writes data, a `trackXxx()` method captures what would have been sent so you can assert on it
+- [ ] **Behavior simulation** - if the wrapper responds to external events, a `simulateXxx()` method can trigger those events in application code
+- [ ] **Behavioral parity** - the Embedded Stub mimics real-world behavior including asynchronous timing (e.g., `setImmediate`) so tests don't pass by coincidence due to synchronous execution
 - [ ] **Forced error** - `createNull({ error: "..." })` throws the configured error
 
 ---
 
-## Rich Error Messages
+### Rich Error Messages
 
-Every failure path test should assert on the *content* of the error message, not just
-that an error was thrown. The message must include enough context to diagnose the
-problem in production without needing to reproduce it.
+Every failure path test should assert on the *content* of the error message, not just that an error was thrown. The message must include enough context to diagnose the problem in production without needing to reproduce it.
 
-Required fields in every failure message:
-
-```
-{Human-readable description of what went wrong}
-Host: {host}:{port}
-Endpoint: {path}
-Status: {status code}
-Headers: {headers as JSON}
-Body: {raw response body}
-```
-
-Example (from Shore's ROT-13 client):
-
-```
-Unexpected status from ROT-13 service
-Host: localhost:9999
-Endpoint: /rot13/transform
-Status: 400
-Headers: {"content-type":"application/json"}
-Body: {"error":"bad request"}
-```
-
-This is the telemetry part. When something breaks in production, this message is
-what lets you diagnose it in seconds rather than hours.
+At minimum, include: what went wrong, what was being called, what was sent, and what came back. The exact fields depend on the type of external system - an HTTP client will log status, headers, and body; a file system wrapper will log the path and OS error; a queue consumer will log the message payload. The principle is the same: when this breaks at 2am, the log entry alone should tell you everything you need.
 
 ---
 
