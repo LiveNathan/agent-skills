@@ -25,6 +25,8 @@ Step 1: Determine scope. Ask the user whether to target:
   - A single test file (user provides the path)
   - All test files in the codebase
 
+**Note on scope boundary:** This skill assumes test *coverage* is already correct. It does not add tests for missing failure paths, audit `createNull` defaults, or evaluate whether the right behaviors are being tested. Those concerns belong to the `paranoic-telemetry` skill, which should be run before this one. If during refactoring you notice obvious coverage gaps (e.g., no failure path tests at all for an HTTP client), flag them to the user but do not add tests - recommend running `paranoic-telemetry` instead.
+
 Step 2: Identify excluded test tags. Scan for `@Tag` annotations used across
 test files. Present the user with a summary:
 
@@ -57,6 +59,8 @@ Step 5: If any tests fail, stop and report failures to the user. Do not proceed 
 ## Phase 3: OpenRewrite Automated Cleanup
 
 Step 6: Before any manual refactoring, check whether OpenRewrite can handle mechanical cleanups. Read `references/openrewrite-recipes.md` for the full recipe list and instructions.
+
+**Skip this entire phase when scope is a single test file.** OpenRewrite recipes operate suite-wide; running them for a one-file refactor is wasteful and produces noisy diffs in unrelated files. Note the skip to the user and proceed to Phase 4.
 
 Present the user with applicable recipes based on what was detected in Phase 1. Once the user approves, run the selected recipes with suppressed output:
 
@@ -142,6 +146,15 @@ new Ensemble(ensembleStartDateTime)
 
 4. **Excessive parameterized test cases** - If parameterized tests have entries that do not exercise distinct boundary conditions, propose removing redundant entries and documenting why the remaining ones matter.
 
+5. **Unclear `createNull` defaults** - If `createNull` factory methods use values whose inconvenience is not self-documenting, propose adding a comment or named constant that explains the choice. Do not change the default value itself (that is a coverage decision belonging to `paranoic-telemetry`), but make it readable.
+```java
+// Before
+createNull(ZoneId.of("Australia/Lord_Howe"))
+// After
+static final ZoneId INCONVENIENT_DEFAULT_ZONE = ZoneId.of("Australia/Lord_Howe");
+createNull(INCONVENIENT_DEFAULT_ZONE)
+```
+
 ### Group B: Structural Refactorings
 
 Read `references/abstraction-ladder.md` for detailed guidance on when to apply each level. For each finding, explain the trade-off and ask for approval.
@@ -181,6 +194,18 @@ Identify opportunities to improve test clarity through better naming and structu
 | Current Name | Proposed Name | Proposed @Nested Group |
 |---|---|---|
 
+**Nested-group name de-duplication heuristic:** When a test moves into a new `@Nested` group, trim any words from the test name that the group name already encodes. The group + test name should read as one phrase without repetition.
+```java
+// Before
+@Test void endDateBeforeStartDateBlocksSubmit() { ... }
+@Test void endTimeBeforeStartTimeOnSameDayBlocksSubmit() { ... }
+// After
+@Nested class ValidationBlocksSubmit {
+    @Test void endDateBeforeStartDate() { ... }
+    @Test void endTimeBeforeStartTimeOnSameDay() { ... }
+}
+```
+
 ### Efficiency Heuristic
 
 Before proposing any multi-file rename or repetitive transformation, check whether IntelliJ IDEA's refactoring tools can do it faster. If so, provide the exact IDE steps instead of making the changes manually:
@@ -214,6 +239,26 @@ Step 8: After completing all refactorings, write a reflection entry to `journal/
 ```
 
 Step 9: Review the reflection. If any "Skill Improvement Notes" suggest a concrete change to this skill's instructions or references, propose the change to the user. If approved, apply the edit to the relevant file in this skill directory.
+
+## Vaadin / Karibu UI Tests
+
+Karibu-Testing tests (`com.github.mvysny.kaributesting`) have unusually heavy locator boilerplate. Treat the following as default proposals whenever a test file uses `_get`, `_find`, `_setValue`, or `_click`:
+
+1. **Extract typed locator helpers.** Any `_get(SomeComponent.class, spec -> spec.withLabel("..."))` or `withText("...")` call used more than once should become a no-arg private method named after the field/button.
+```java
+// Before (repeated across 6 tests)
+_setValue(_get(DatePicker.class, spec -> spec.withLabel("Start Date")), date);
+// After
+private DatePicker startDate() { return _get(DatePicker.class, spec -> spec.withLabel("Start Date")); }
+// usage
+_setValue(startDate(), date);
+```
+
+2. **Extract a `clickSubmit()` helper** (and similar for repeated buttons) — `_click(_get(Button.class, spec -> spec.withText("Submit")))` is opaque at call sites.
+
+3. **Extract a form-fill helper** when 3+ field setters appear together. Take the form values as parameters so the call site reads as a single sentence: `fillForm(startDate, startTime, endDate, endTime)`.
+
+4. **Extract a navigate helper for route-parameterized views.** `getCurrent().navigate("some-view/" + UUID.randomUUID())` is repeated boilerplate; wrap it as `navigateToFreshFoo()` returning the typed id.
 
 ## Modern Java Considerations
 
