@@ -95,6 +95,36 @@ Every failure path test should assert on the *content* of the error message, not
 
 At minimum, include: what went wrong, what was being called, what was sent, and what came back. The exact fields depend on the type of external system - an HTTP client will log status, headers, and body; a file system wrapper will log the path and OS error; a queue consumer will log the message payload. The principle is the same: when this breaks at 2am, the log entry alone should tell you everything you need.
 
+### Logger Output Testing
+
+When testing log entries (particularly with nullables that use EventEmitter-based loggers), create the `OutputTracker` **before** calling the method under test, not after. The tracker only captures log events emitted after it subscribes to the logger's event emitter.
+
+**Correct pattern:**
+
+```typescript
+const logger = controller.getLogger();
+const outputTracker = logger.trackOutput(); // <-- BEFORE
+
+await controller.handleRequest(req, res);
+
+expect(outputTracker.data).toContainEqual({
+  level: "warn",
+  message: "Expected message",
+  metadata: {key: "value"},
+});
+```
+
+**Incorrect pattern:**
+
+```typescript
+await controller.handleRequest(req, res); // <-- Logs emitted here
+const outputTracker = controller.getLogger().trackOutput().data; // <-- TOO LATE
+
+expect(outputTracker).toContainEqual({...}); // Will always fail or be empty
+```
+
+This applies to any logger that uses event-based output tracking (e.g., EventEmitter with `trackOutput()` methods). If you retrieve the tracker after the method has run, it will be empty because it missed the events.
+
 ---
 
 ## Test Structure
