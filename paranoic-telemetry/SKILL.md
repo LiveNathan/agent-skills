@@ -61,6 +61,19 @@ Each of the following must either throw an exception or log an error and send an
 
 - [ ] Request timeout / hanging connection - a connection that never responds throws
 
+**For query builders / string-assembling components (SQL builders, template renderers, command constructors):**
+
+- [ ] Injection safety - hostile input (SQL/HTML/shell metacharacters, e.g. `'; DROP TABLE x; --`) must land in bound parameters or escaped output, never in the assembled string. Assert the raw payload is ABSENT from the built string and PRESENT in `replacements`/params.
+
+**For pure parsers / mappers (Zod/schema boundary, deserializers, row mappers — no logger, no external IO):**
+
+The failure telemetry *is* the richness of the thrown error, since there is no logger and no IO to observe. A raw `ZodError` or `SyntaxError` (e.g. from `JSON.parse` inside a schema preprocess) leaks with no record identity or calling context.
+
+- [ ] Unparseable input - malformed JSON / wrong type throws (not silently coerced)
+- [ ] Wrong shape - missing required field, wrong type, invalid enum, invalid nested element throws
+- [ ] Extra fields - unknown keys are ignored, must NOT throw (forward compatibility)
+- [ ] Rich wrapped error - the parse is wrapped in try/catch that rethrows a domain error carrying the record identity (e.g. row id) + a context string + the original error as `cause`. Assert `isInstanceOf(YourMappingError)`, `hasMessageContaining(id)`, `hasMessageContaining("<context string>")`, and that `cause` is the original `ZodError`/`SyntaxError`.
+
 **For non-HTTP components (domain services, event handlers, file processors, etc.):**
 
 - [ ] Collaborator exceptions are caught, wrapped with rich context, and re-thrown - the wrapper exception message must include enough to diagnose the problem in production without reproducing it (e.g. identifiers, filename, calling context such as "on CsvDataCleaned" or "during startup sweep"). Assert `isInstanceOf(YourDomainException.class)`, `hasMessageContaining(id.toString())`, `hasMessageContaining("<context string>")`, and `hasCause(originalException)`.
@@ -125,6 +138,30 @@ expect(outputTracker).toContainEqual({...}); // Will always fail or be empty
 
 This applies to any logger that uses event-based output tracking (e.g., EventEmitter with `trackOutput()` methods). If you retrieve the tracker after the method has run, it will be empty because it missed the events.
 
+**When the logger is console-based (no `trackOutput`/EventEmitter):** you cannot assert log content without a `console.*` spy. Either (a) recommend making the logger a nullable infrastructure wrapper so failure-path telemetry is assertable, or (b) explicitly flag the telemetry as unverified and test only the return/throw. Do not silently skip — surface it.
+
+### Boundary Data Must Actually Sit On The Boundary
+
+When you add a test for a boundary or edge case, **pick data that provably fails against the naive
+implementation.** Then verify it: temporarily revert the code to the naive version (or write the
+test before the fix) and confirm the test goes red. If it passes either way, it is not a boundary
+test — it is a test whose *name* claims a risk it never exercises.
+
+This is worse than having no test at all, because the name retires the concern. A reviewer scanning
+for "is the month-boundary case covered?" sees that it is, and stops looking.
+
+Real example: a rule specified as `newEndDate = oldEndDate + (newStartDate - oldStartDate)` was
+implemented with a calendar `Period`, which clamps to month length. A test named
+`multiDaySpanShiftedAcrossAMonthBoundaryPreservesSpanLength` used Oct 30 → Nov 2 and passed under
+both the broken and correct implementations. The bug — a 16-day activity silently becoming 13 days
+— needed a *clamping* day-of-month (29–31 into a shorter month) to surface, and was caught in
+review instead.
+
+Ask, for each boundary test: **which specific wrong implementation does this datum rule out?** If
+you cannot name one, change the datum. Common cases where the obvious value is too weak: dates
+(month lengths, leap days, DST), off-by-one indices (pick 0 and n, not 1 and n-1), and numeric
+limits (pick the value that overflows, not one near it).
+
 ---
 
 ## Test Structure
@@ -183,4 +220,17 @@ Workflow: run `paranoic-telemetry` first to get coverage right, then run `refact
 
 &lt;!-- Add entries here as: - \[context\] lesson learned --&gt;
 
+- [date-shift rule, showbook 2026-07-25] A boundary test can name the right risk and still prove
+  nothing if its data passes under the broken implementation too. Verify boundary tests go red
+  against the naive version — see "Boundary Data Must Actually Sit On The Boundary".
+- [pure projector/decider slices, showbook 2026-07-25] When a slice has no external infrastructure
+  boundary (no HTTP, clock, LLM, or persistence wrapper), most of this checklist does not apply and
+  forcing it produces ceremony. The findings that *do* generalize are the representable-input
+  matrix: take the value object's fields and cross them null/non-null. Two real bugs came from
+  exactly that — `endDate` present with a null `endTime` threw an NPE that a swallowing rebuild
+  loop turned into a blank read model, and an equal start/end instant produced a zero-length bar.
+  Neither was a named scenario; both were legal inputs nobody had crossed.
+
 - \[UI/form views\] When validation errors may surface in multiple places (field-level invalid state, binder status label, notification), assert on the *behavioral outcome* (submit blocked, nothing persisted) rather than the specific error-display location. Field-level constraints (e.g. DatePicker min/max set by value-change listeners) can mark a field invalid before the bean-level validator runs, so the status label may stay empty even when validation correctly blocks submit.
+
+- \[collaborators with multiple internal code paths\] Before writing a failure/branch test, check whether *every* branch of the method actually routes through the nulled dependency — some branches may call a real, un-nulled collaborator (e.g. a different internal client) even though the class's `createNull()` looks complete. Pick the branch/config that stays inside the null boundary rather than reaching for `jest.mock`.
