@@ -1,0 +1,5 @@
+# macOS Finder metadata
+.DS_Store
+
+# graphify knowledge-graph output, rebuilt from source
+graphify-out/
