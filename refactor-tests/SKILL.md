@@ -1,152 +1,97 @@
 ---
 name: refactor-tests
-description: Refactor and modernize Java test suites for readability, maintainability, and modern idioms. Use when the user asks to clean up tests, refactor tests, improve test readability, modernize test code, add assertion descriptions, reduce test duplication, apply test best practices, or run test cleanup on a codebase. Targets Java 17+ with JUnit 5/6 and AssertJ. Do not use for writing new tests from scratch or for non-Java projects.
+description: Refactor and modernize an existing test suite for readability, maintainability, and modern idioms. Use when the user asks to clean up tests, refactor tests, improve test readability, modernize test code, add assertion descriptions, reduce test duplication, or run test cleanup on a codebase. Covers Java (JUnit/AssertJ) and TypeScript (Jest/RTL/Playwright). Do not use for writing new tests from scratch.
 ---
 
 # Refactor Tests
 
-Analyze and refactor Java test code for readability, maintainability, and modern
-best practices. Inspired by Ted M. Young's (JitterTed) refactoring tests
-guidelines, combined with OpenRewrite automation and modern Java idioms.
+Analyze and refactor existing test code for readability, maintainability, and modern best
+practices. Inspired by Ted M. Young's (JitterTed) refactoring tests guidelines and Kent C. Dodds'
+Testing Library philosophy.
+
+**Detect the language first, then read the matching reference and use it throughout.** The phases
+below are shared; the tooling, commands, and idioms live in the reference:
+
+- Java (Maven/Gradle, JUnit 5/6, AssertJ) → `references/java.md`
+- TypeScript (Jest, React Testing Library, Playwright) → `references/typescript.md`
 
 ## Guiding Philosophy
 
-Tests are living documentation. They tell other developers how to use the code
-and what behavior to expect. Every refactoring decision should optimize for
-**readability in isolation** - a developer should understand any single test
-without looking elsewhere.
+- **Tests are living documentation.** They tell other developers how to use the code and what
+  behavior to expect.
+- **Readability in isolation.** A developer should understand any single test without looking
+  elsewhere. Prefer verbosity over hidden setup, explicit over clever, domain language over
+  technical jargon.
+- **Test behavior, not implementation.** Test what a user of the code can observe.
+- **Respect existing architectural patterns.** Infrastructure Wrappers, Nullables, and
+  OutputTracker are deliberate — do not replace them with conventional mocks unless asked.
 
-Prefer verbosity over hidden setup. Prefer explicit over clever. Prefer domain
-language over technical jargon.
+**Scope boundary:** this skill assumes test *coverage* is already correct. It does not add tests for
+missing failure paths, audit `createNull` defaults, or evaluate whether the right behaviors are
+tested. Those belong to `paranoic-telemetry`, which runs before this one. If you notice an obvious
+coverage gap, flag it and recommend `paranoic-telemetry` — do not write the test yourself.
 
 ## Phase 1: Scope and Configuration
 
-Step 1: Determine scope. Ask the user whether to target:
-  - A single test file (user provides the path)
-  - All test files in the codebase
+**Step 1:** Determine scope — a single test file (user provides the path) or all test files.
 
-**Note on scope boundary:** This skill assumes test *coverage* is already correct. It does not add tests for missing failure paths, audit `createNull` defaults, or evaluate whether the right behaviors are being tested. Those concerns belong to the `paranoic-telemetry` skill, which should be run before this one. If during refactoring you notice obvious coverage gaps (e.g., no failure path tests at all for an HTTP client), flag them to the user but do not add tests - recommend running `paranoic-telemetry` instead.
+**Step 2:** Identify what to exclude from the baseline run, per the language reference (Java: `@Tag`
+annotations; TypeScript: the integration and E2E categories). Present a summary of what you found
+and what you plan to exclude, then **wait for confirmation**.
 
-Step 2: Identify excluded test tags. Scan for `@Tag` annotations used across
-test files. Present the user with a summary:
-
-> "Before refactoring, I need to run all tests to confirm we are green. I found
-> these tags in your test suite: `@Tag("slow")`, `@Tag("costly")`,
-> `@Tag("research")`. I will exclude tests with these tags: [slow, costly].
-> Want to adjust this list before I proceed?"
-
-Wait for user confirmation before proceeding.
-
-Step 3: Detect the build tool (Maven or Gradle) and test framework version
-(JUnit 4, JUnit 5, or JUnit 6). Record these for later steps.
+**Step 3:** Detect the build tool / package manager and test framework version, per the language
+reference. Record these for later steps.
 
 ## Phase 2: Go Green
 
-Step 4: Run the full test suite (excluding confirmed tags) with quiet output.
+**Step 4:** Run the test suite (minus the confirmed exclusions) with quiet output, using the command
+from the language reference.
 
-For Maven:
-```bash
-mvn -q test -Dgroups='!slow & !costly'
-```
+**Step 5:** If any test fails, stop and report. **Refactoring from red is unsafe** — do not proceed
+until the included tests pass.
 
-For Gradle:
-```bash
-./gradlew -q test --tests '*' -PexcludeTags=slow,costly
-```
+## Phase 3: Automated Cleanup
 
-Step 5: If any tests fail, stop and report failures to the user. Do not proceed with refactoring until all included tests pass. Refactoring from red is unsafe.
+**Step 6:** Before any manual refactoring, let the tooling do the mechanical work — OpenRewrite
+(Java) or ESLint auto-fix (TypeScript). The language reference lists the recipes/plugins and the
+exact commands.
 
-## Phase 3: OpenRewrite Automated Cleanup
+**Skip this entire phase when the scope is a single test file.** These tools operate suite-wide;
+running them for a one-file refactor produces noisy diffs in unrelated files. Note the skip to the
+user and go to Phase 4.
 
-Step 6: Before any manual refactoring, check whether OpenRewrite can handle mechanical cleanups. Read `references/openrewrite-recipes.md` for the full recipe list and instructions.
-
-**Skip this entire phase when scope is a single test file.** OpenRewrite recipes operate suite-wide; running them for a one-file refactor is wasteful and produces noisy diffs in unrelated files. Note the skip to the user and proceed to Phase 4.
-
-Present the user with applicable recipes based on what was detected in Phase 1. Once the user approves, run the selected recipes with suppressed output:
-
-```bash
-mvn -q rewrite:run \
-  --define rewrite.activeRecipes=<SELECTED_RECIPES> \
-  --define rewrite.recipeChangeLogLevel=ERROR
-```
-
-- `-q` suppresses Maven lifecycle noise.
-- `recipeChangeLogLevel=ERROR` suppresses per-file change warnings.
-- On success, output is empty or near-empty (token-safe).
-- On failure, errors are still printed for diagnosis.
-
-After OpenRewrite completes, re-run the test suite with quiet output:
-
-```bash
-mvn -q test
-```
-
-Confirm green before proceeding to Phase 4.
+Re-run the suite and confirm green before Phase 4.
 
 ## Phase 4: Automatic Refactorings
 
-Apply these refactorings without asking for confirmation. They are safe and universally beneficial.
+Apply these without asking. They are safe and universally beneficial.
 
-### 4a: Add `.as()` Descriptions to All Assertions
+**Ensure AAA structure with blank-line separation.** Each test should visibly separate Arrange, Act,
+and Assert. Add the blank lines if missing.
 
-Scan every assertion call (`assertThat`, `assertTrue`, `assertFalse`, `assertEquals`, `assertNotNull`, etc.). If an assertion lacks an `.as()` description, add one that describes the expected behavior in domain terms.
-
-Use `.as("description")` - never `@Description`.
-
-**Before:**
-```java
-assertThat(ensemble.isCompleted()).isTrue();
-```
-
-**After:**
-```java
-assertThat(ensemble.isCompleted())
-    .as("Ensemble should be completed after markComplete is called")
-    .isTrue();
-```
-
-For boolean assertions, prefer AssertJ's domain-specific methods when possible:
-```java
-// Before
-assertThat(result).isEqualTo(true);
-// After  
-assertThat(result)
-    .as("Operation should succeed")
-    .isTrue();
-```
-
-### 4b: Ensure SCA Structure with Blank Line Separation
-
-Each test method should have visible separation between Setup, Command (execute), and Assert sections. Add blank lines between sections if missing.
-
-### 4c: Simplify throws Clauses
-
-If test methods declare `throws Exception` or `throws` checked exceptions that are not actually thrown, simplify or remove them.
+Then apply every item under "Automatic refactorings" in the language reference (Java: `.as()`
+descriptions, throws-clause cleanup; TypeScript: `screen` queries, `userEvent`, query variants,
+jest-dom matchers, `act()` and `waitFor` fixes).
 
 ## Phase 5: Analysis and Proposals
 
-Read each test file and identify refactoring opportunities. Classify them and present to the user in two groups.
+Read each test file, identify opportunities, and present them to the user in groups. For each
+finding show the file, line, current code, and proposed change.
 
 ### Group A: Readability Quick Wins
 
-For each finding, show the file, line, current code, and proposed change.
+1. **Unnamed magic values** — constructor or method arguments whose meaning is unclear. Extract to a
+   named local variable or constant.
+2. **Irrelevant data not marked as dummy** — parameters that don't affect the outcome but are
+   required by the constructor. Use a named constant like `IRRELEVANT_SUIT`, or a factory default.
+3. **Hidden setup in `@BeforeEach` / `beforeEach`** — if setup creates objects whose details a test
+   must know in order to read its assertions, inline that setup into the tests that need it.
+4. **Excessive parameterized cases** — entries that don't exercise a distinct boundary condition.
+   Remove them and document why the survivors matter.
+5. **Unclear `createNull` defaults** — when the *inconvenience* of a default isn't self-documenting,
+   name it. Do not change the value — that is a coverage decision owned by `paranoic-telemetry` —
+   just make it readable.
 
-1. **Unnamed magic values** - Constructor arguments or method parameters whose meaning is unclear. Propose extracting to a named local variable.
-```java
-// Before
-new Ensemble(ZonedDateTime.now())
-// After
-ZonedDateTime ensembleStartDateTime = ZonedDateTime.now();
-new Ensemble(ensembleStartDateTime)
-```
-
-2. **Irrelevant data not marked as dummy** - Parameters that do not affect the test outcome but are required by the constructor. Propose using a named constant or variable like `IRRELEVANT_SUIT` or `DUMMY_NAME`.
-
-3. **Hidden setup in @BeforeEach** - If @BeforeEach creates objects that are then asserted against in ways that require knowing the setup details, propose inlining that setup into the test methods that need it.
-
-4. **Excessive parameterized test cases** - If parameterized tests have entries that do not exercise distinct boundary conditions, propose removing redundant entries and documenting why the remaining ones matter.
-
-5. **Unclear `createNull` defaults** - If `createNull` factory methods use values whose inconvenience is not self-documenting, propose adding a comment or named constant that explains the choice. Do not change the default value itself (that is a coverage decision belonging to `paranoic-telemetry`), but make it readable.
 ```java
 // Before
 createNull(ZoneId.of("Australia/Lord_Howe"))
@@ -157,44 +102,38 @@ createNull(INCONVENIENT_DEFAULT_ZONE)
 
 ### Group B: Structural Refactorings
 
-Read `references/abstraction-ladder.md` for detailed guidance on when to apply each level. For each finding, explain the trade-off and ask for approval.
+Read the abstraction ladder named in the language reference for when to apply each rung. Explain the
+trade-off and ask for approval on each.
 
-1. **Extract factory methods** - When 2-3 tests create similar objects with small variations, propose a static factory method with parameters for only the parts that vary.
+1. **Extract factory methods** — 2–3 tests building similar objects with small variations.
+   Parameterize only what varies.
+2. **Create test builders** — 4+ variations of an object across tests. Builders live in test code,
+   never in production code.
+3. **Create customizers** — complex object graphs with child objects (e.g. event-sourcing scenarios
+   where creating a parent entity also creates child events).
+4. **Create custom assertions/matchers** — when tests repeatedly check the same combination of
+   properties on a domain object. Template in the language reference.
+5. **Promote to a shared factory** — when factories are needed across multiple test files.
 
-2. **Create test builders** - When 4+ variations of an object exist across tests, propose a test-specific builder class with reasonable defaults. Builders belong in test code, not production code.
+### Group C: Naming & Organization
 
-3. **Create customizers** - When object construction involves complex graphs with child objects (e.g., event sourcing scenarios where creating a parent entity also creates child events), propose the customizer pattern. Read `references/abstraction-ladder.md` for the customizer pattern details.
-
-4. **Create custom assertions** - When tests repeatedly check the same combination of properties on a domain object, propose a custom AssertJ assertion class. Read `references/custom-assertions.md` for the template.
-
-5. **Extract to _Factory class** - When factory methods are needed across multiple test classes, propose moving them to a shared factory class.
-
-### Group C: Naming & Organization Proposals
-
-Identify opportunities to improve test clarity through better naming and structural organization using `@Nested` classes.
-
-**Naming Convention (following Ted M. Young / JitterTed):**
-- Use plain camelCase behavioral descriptions, NOT given_when_then.
-- Test name should read as a declarative statement of behavior.
-- Pattern: `<subject><verb><expectedOutcome>` (e.g., `ensembleAcceptsMember`).
-- NEVER include production method names in test names (fragile to refactoring).
-- Focus on WHAT behavior is verified, not HOW.
+Test names read as declarative statements of behavior. Focus on WHAT is verified, not HOW, and keep
+production method names out of the name — they make tests fragile to renaming.
 
 **Anti-patterns to flag:**
-- `given_when_then` underscored names -> propose camelCase behavioral name.
-- Method names embedded in test names (e.g., `testGetUser`) -> propose behavioral name.
-- `test` prefix (JUnit 3 relic) -> propose removal.
-- Vague names (e.g., `testHappyPath`, `testEdgeCase`) -> propose specific behavior.
 
-**Organization:**
-- Propose `@Nested` class groupings where tests naturally cluster by concept or shared state.
-- Nested class names should be noun phrases (e.g., `CommandsGenerateEvents`, `EventsProjectState`).
+- `given_when_then` underscored names → behavioral name
+- Method names embedded in test names (`testGetUser`, `handleSubmit`) → behavioral name
+- `test` prefix, a JUnit 3 relic → remove
+- Vague names (`testHappyPath`, `should work`) → specific behavior
+- Deeply nested groups (>3 levels) → flatten or split the file
 
-**Output format:** Present as a table:
-| Current Name | Proposed Name | Proposed @Nested Group |
-|---|---|---|
+Group names are noun phrases or "when" clauses: `CommandsGenerateEvents`, `when user is
+authenticated`. The language reference gives the exact naming pattern and grouping mechanism.
 
-**Nested-group name de-duplication heuristic:** When a test moves into a new `@Nested` group, trim any words from the test name that the group name already encodes. The group + test name should read as one phrase without repetition.
+**Group-name de-duplication:** when a test moves into a group, trim the words the group name already
+encodes. Group + test name should read as one phrase without repetition.
+
 ```java
 // Before
 @Test void endDateBeforeStartDateBlocksSubmit() { ... }
@@ -206,77 +145,27 @@ Identify opportunities to improve test clarity through better naming and structu
 }
 ```
 
+**Output format:** a table of Current Name | Proposed Name | Proposed Group.
+
+### Group D: Language-specific proposals
+
+Apply the remaining proposal groups from the language reference — TypeScript: React Testing Library
+anti-patterns and Playwright improvements; Java: modern-Java opportunities.
+
 ### Efficiency Heuristic
 
-Before proposing any multi-file rename or repetitive transformation, check whether IntelliJ IDEA's refactoring tools can do it faster. If so, provide the exact IDE steps instead of making the changes manually:
+Before proposing any multi-file rename or repetitive transformation, check whether the IDE can do it
+faster. If so, give the exact steps instead of editing each site:
 
-> "This rename affects 47 usages across 12 files. Instead of editing each one, use IntelliJ: place cursor on the symbol -> Shift+F6 -> type new name -> Enter."
+> "This rename affects 47 usages across 12 files. Instead of editing each one, use IntelliJ: place
+> the cursor on the symbol → Shift+F6 → type the new name → Enter." (VS Code: F2.)
 
 ## Phase 6: Execute Approved Refactorings
 
-Step 7: Apply only the refactorings the user approved. After each batch of changes (per file or per refactoring type), re-run the test suite to confirm green. If any test breaks, revert the last change and investigate.
+**Step 7:** Apply only what the user approved. Re-run the suite after each batch (per file or per
+refactoring type). If a test breaks, revert the last change and investigate.
 
-## Phase 7: Reflection and Self-Improvement
+---
 
-Step 8: After completing all refactorings, write a reflection entry to `journal/reflection-log.md` (create the file if it does not exist). The entry should include:
-```markdown
-## [DATE] - [PROJECT NAME]
-
-### Scope
-- Files analyzed: N
-- Files modified: N
-
-### Refactorings Applied
-- [List each type and count]
-
-### Patterns Observed
-- [Recurring smells or project-specific idioms noticed]
-
-### Skill Improvement Notes
-- [Any heuristic that was unclear, wrong, or missing]
-- [Any new pattern worth adding to the skill]
-- [Any OpenRewrite recipe that would have helped but was not listed]
-```
-
-Step 9: Review the reflection. If any "Skill Improvement Notes" suggest a concrete change to this skill's instructions or references, propose the change to the user. If approved, apply the edit to the relevant file in this skill directory.
-
-## Vaadin / Karibu UI Tests
-
-Karibu-Testing tests (`com.github.mvysny.kaributesting`) have unusually heavy locator boilerplate. Treat the following as default proposals whenever a test file uses `_get`, `_find`, `_setValue`, or `_click`:
-
-1. **Extract typed locator helpers.** Any `_get(SomeComponent.class, spec -> spec.withLabel("..."))` or `withText("...")` call used more than once should become a no-arg private method named after the field/button.
-```java
-// Before (repeated across 6 tests)
-_setValue(_get(DatePicker.class, spec -> spec.withLabel("Start Date")), date);
-// After
-private DatePicker startDate() { return _get(DatePicker.class, spec -> spec.withLabel("Start Date")); }
-// usage
-_setValue(startDate(), date);
-```
-
-2. **Extract a `clickSubmit()` helper** (and similar for repeated buttons) — `_click(_get(Button.class, spec -> spec.withText("Submit")))` is opaque at call sites.
-
-3. **Extract a form-fill helper** when 3+ field setters appear together. Take the form values as parameters so the call site reads as a single sentence: `fillForm(startDate, startTime, endDate, endTime)`.
-
-4. **Extract a navigate helper for route-parameterized views.** `getCurrent().navigate("some-view/" + UUID.randomUUID())` is repeated boilerplate; wrap it as `navigateToFreshFoo()` returning the typed id.
-
-## Modern Java Considerations
-
-When refactoring tests targeting Java 17+, also look for:
-
-- **Records for test data**: If a test creates a class solely to hold test data with equals/hashCode, suggest converting to a Java record.
-- **Pattern matching in assertions**: If custom assertion code uses chains of `instanceof` checks and casts, refactor to use pattern matching:
-```java
-// Before
-if (actual instanceof RichResult.Failure) {
-    String msg = ((RichResult.Failure<T>) actual).errorMessage();
-    failWithMessage("...", msg);
-}
-// After (Java 17+)
-if (actual instanceof RichResult.Failure<T>(String errorMessage)) {
-    failWithMessage("...", errorMessage);
-}
-```
-
-- **Sealed types**: If domain types are sealed interfaces, custom assertions can leverage exhaustive switch expressions for completeness.
-- **JUnit 6 features** (if on JUnit 6): Suggest `@ParameterizedClass` when an entire test class needs to run against multiple configurations. Note that JUnit 6 uses FastCSV for `@CsvSource` (stricter parsing). Suggest removing JRE-based conditional annotations for versions below 17.
+To improve this skill after a session, run `retro` — it owns skill edits, and it prunes as well as
+adds.

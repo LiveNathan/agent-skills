@@ -1,10 +1,8 @@
 ---
 name: paranoic-telemetry
-description: Audit and complete test coverage for service/HTTP clients and infrastructure wrappers using James Shore's Paranoic Telemetry pattern. Use when writing or reviewing tests for external service clients, HTTP clients, domain services, event handlers, or file processors - especially to verify failure paths, rich error messages, Nullable Infrastructure Wrapper defaults, and forward-compatibility with API evolution. Triggers on requests to audit test coverage, find missing tests, or harden failure-mode testing.
-version: "2.0"
-author: nathanlively
+description: Audit and complete test coverage for code that talks to an external system, using James Shore's Paranoic Telemetry pattern - failure paths, rich error messages, Nullable Infrastructure Wrapper defaults, forward compatibility. Use when auditing, hardening, or writing tests for a service client, HTTP client, parser, event handler, or infrastructure wrapper.
 compatibility: Language-agnostic; examples use Jest/TypeScript and JUnit 5/Java.
-allowed-tools: Read, Grep, Bash(npm:*), Bash(./mvnw:*), Bash(jest:*)
+allowed-tools: Read, Grep, Edit, Write, Bash(npm:*), Bash(./mvnw:*), Bash(jest:*)
 ---
 
 ## Workflow
@@ -78,6 +76,14 @@ The failure telemetry *is* the richness of the thrown error, since there is no l
 
 - [ ] Collaborator exceptions are caught, wrapped with rich context, and re-thrown - the wrapper exception message must include enough to diagnose the problem in production without reproducing it (e.g. identifiers, filename, calling context such as "on CsvDataCleaned" or "during startup sweep"). Assert `isInstanceOf(YourDomainException.class)`, `hasMessageContaining(id.toString())`, `hasMessageContaining("<context string>")`, and `hasCause(originalException)`.
 
+### Components With No Infrastructure Boundary
+
+When a component talks to nothing outside the process — a pure projector, decider, or value object — most of this checklist does not apply, and forcing it produces ceremony. Audit the **representable-input matrix** instead: take the type's fields and cross them null/non-null, present/absent, equal/unequal. Every combination the type permits is a case production will eventually hand it.
+
+- [ ] Every representable combination of optional fields is either tested or provably rejected at construction
+
+Two real bugs came from exactly that cross: an `endDate` present with a null `endTime` threw an NPE that a swallowing rebuild loop turned into a blank read model, and an equal start/end instant produced a zero-length bar. Neither was a named scenario; both were legal inputs nobody had crossed.
+
 ### Nullability *(only if using Shore's Nullable Infrastructure Wrapper pattern)*
 
 The goal of `createNull` is to make tests **easy to set up but hard to use incorrectly**. Defaults must enable parameterless instantiation of the full dependency tree, but those defaults should be inconvenient enough that a test relying on them by accident will produce obviously wrong results. When a test needs a specific value, it overrides the default explicitly - this keeps the "arrange" section of each test focused on exactly what that test cares about.
@@ -99,6 +105,8 @@ The goal of `createNull` is to make tests **easy to set up but hard to use incor
 - [ ] Behavioral parity - the Embedded Stub mimics real-world behavior including asynchronous timing (e.g., `setImmediate`) so tests don't pass by coincidence due to synchronous execution
 
 - [ ] Forced error - `createNull({ error: "..." })` throws the configured error
+
+**Check the branch actually stays inside the null boundary.** A class whose `createNull()` looks complete may still route *some* branches through a real, un-nulled collaborator. Before writing a branch test, confirm the branch you picked reaches the nulled dependency; choose a different branch or config rather than reaching for `jest.mock`.
 
 ---
 
@@ -188,10 +196,6 @@ class ServiceNameClientTest {
 
 ---
 
-Step 5 (after writing tests, if tests were written): Reflect briefly on the session. Did any test cases come up that the checklist doesn't cover? Did the workflow break down or produce something awkward? If so, propose a specific, minimal edit to this skill file - a new checklist item, a clarification, or a correction. Do not propose edits for things that already worked well. Present the proposal and ask whether to apply it.
-
----
-
 ## Background
 
 From Shore:
@@ -212,25 +216,4 @@ It does NOT handle test readability, naming conventions, assertion descriptions,
 
 Workflow: run `paranoic-telemetry` first to get coverage right, then run `refactor-tests` to clean up how the tests read.
 
----
-
-## Known Edge Cases
-
-*This section is maintained by the skill itself. Each entry is a generalized lesson from a real session, added only when the workflow produced something awkward or missed something real.*
-
-&lt;!-- Add entries here as: - \[context\] lesson learned --&gt;
-
-- [date-shift rule, showbook 2026-07-25] A boundary test can name the right risk and still prove
-  nothing if its data passes under the broken implementation too. Verify boundary tests go red
-  against the naive version — see "Boundary Data Must Actually Sit On The Boundary".
-- [pure projector/decider slices, showbook 2026-07-25] When a slice has no external infrastructure
-  boundary (no HTTP, clock, LLM, or persistence wrapper), most of this checklist does not apply and
-  forcing it produces ceremony. The findings that *do* generalize are the representable-input
-  matrix: take the value object's fields and cross them null/non-null. Two real bugs came from
-  exactly that — `endDate` present with a null `endTime` threw an NPE that a swallowing rebuild
-  loop turned into a blank read model, and an equal start/end instant produced a zero-length bar.
-  Neither was a named scenario; both were legal inputs nobody had crossed.
-
-- \[UI/form views\] When validation errors may surface in multiple places (field-level invalid state, binder status label, notification), assert on the *behavioral outcome* (submit blocked, nothing persisted) rather than the specific error-display location. Field-level constraints (e.g. DatePicker min/max set by value-change listeners) can mark a field invalid before the bean-level validator runs, so the status label may stay empty even when validation correctly blocks submit.
-
-- \[collaborators with multiple internal code paths\] Before writing a failure/branch test, check whether *every* branch of the method actually routes through the nulled dependency — some branches may call a real, un-nulled collaborator (e.g. a different internal client) even though the class's `createNull()` looks complete. Pick the branch/config that stays inside the null boundary rather than reaching for `jest.mock`.
+To improve this skill after a session, run `retro` — it owns skill edits, and it prunes as well as adds.
