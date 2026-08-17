@@ -46,12 +46,34 @@ If there's no config block, ask once and offer to write it into `CLAUDE.md`.
 
 ## Steps
 
-### 1. Fingerprint the baseline
+### 1. Start a new worktree — a clean room, not the manifest's home
+
+Before touching the board or the repo, create an isolated worktree for this chapter's work with
+the Supacode CLI, using the branch naming convention captured in the config block above:
+
+```
+supacode repo worktree-new --branch <branch-name-per-convention> --base <default-branch>
+```
+
+Run every remaining step in this skill — fingerprinting, file discovery, baseline suite — from
+inside that worktree, not the main checkout. The point is a clean room: no stray exploration
+files and no other session's uncommitted diffs can contaminate the baseline you are about to
+fingerprint. `supacode worktree list --focused` confirms which worktree is active.
+
+**The worktree is scratch space; the manifest is not delivered from it — see Step 7.** Build
+branches each slice off the *default* branch, so a manifest left on this feature branch is
+invisible to every one of them. This worktree is disposable the moment Step 7 lands.
+
+If `supacode repo worktree-new` fails (no repo configured in Supacode, CLI unavailable), fall
+back to creating the branch normally per the project's convention and note the fallback in the
+manifest so the Build session knows it isn't in a dedicated worktree.
+
+### 2. Fingerprint the baseline
 
 Capture `git rev-parse HEAD`, the board chapter id + deeplink, and an ISO-8601 timestamp. The
 Build session uses these to detect that the model moved out from under the manifest.
 
-### 2. Decompose the slices, in dependency order
+### 3. Decompose the slices, in dependency order
 
 A read model / view comes after the command that emits its events. A UI slice comes after the
 route it calls. For each slice record its GWT (verbatim from the board — do not paraphrase; the
@@ -72,6 +94,32 @@ two scenarios **verbatim** that encode a live defect or a regression you must no
 plainly in the manifest that the board is authoritative for the full text, and that you deviated
 deliberately and why. An unflagged partial copy is the failure mode — it reads as complete.
 
+**A slice with no scenarios of its own is not buildable. Do not give it a `TODO` marker.**
+
+If you find yourself writing "no scenarios of its own — its behavior is exercised by slice N's", or
+"contract only, not a decision", or "wiring now, body filled in later", you have found a slice with
+no observable behavior. It cannot be tested honestly on its own: the class it produces will have no
+collaborator, so `createNull()` would be identical to `create()`, and the test-writer's only way to
+observe anything is to boot Spring and spy on a subclass. That is scaffolding around a stub, and it
+passes review looking like a well-written test.
+
+Resolve it here, one of two ways:
+
+- **Merge it** into the slice whose scenarios exercise it — they are one unit of behavior that the
+  model happened to draw as two boxes. This is not slice batching (which shares a PR across slices
+  that each stand alone); it is recognising a boundary that was never real.
+- **Flag it** in the manifest as needing a design call before Build, and say what is missing.
+
+Note the failure this prevents is *not* a slice being small. It is a slice being **empty of
+decisions**. A one-line slice with a real GWT is fine.
+
+*Incident:* the readiness-report chapter's "Section Data Changed" shipped a manifest entry that said
+"No scenarios of its own by design" and still got a `TODO` marker. The Build session produced a
+stub-bodied class and a 220-line `@SpringBootTest` with a spy subclass; the test-writer wrote it, the
+reviewer passed it, and Nathan caught it at PR #396. The disqualifying sentence was already written
+in the manifest — nothing was missing but the gate. The fix was a to-do-list read model that gave the
+class a real collaborator, which also closed a crash-resilience hole nobody had noticed.
+
 Three checks turn a plausible file list into a correct one:
 
 - **Data-flow trace per GWT** — an under-scoped file list is what forces a mid-implementation stop.
@@ -81,13 +129,13 @@ Three checks turn a plausible file list into a correct one:
 Each is defined in the completeness checklist below. Run that list before you call the manifest
 done.
 
-### 3. Record the board-vs-code diff
+### 4. Record the board-vs-code diff
 
 Slices that are already shipped despite a stale board status. Slice details that contradict a
 shipped contract or a revised ADR. Schema discrepancies resolved during grilling. The Build
 session must not rediscover these.
 
-### 4. Document the guardrails
+### 5. Document the guardrails
 
 - Constraints and non-goals confirmed during grilling.
 - **Known pre-existing red:** any currently-failing or flaky test, by file + test name, with the
@@ -95,12 +143,12 @@ session must not rediscover these.
   rediscovers and triages the same failure.
 - Decisions that were made and must not be re-litigated.
 
-### 5. Preflight (only if staying in this session)
+### 6. Preflight
 
-- Create the branch per the project's convention.
-- Run the project's baseline suite and record whether it was green.
+Run the project's baseline suite from inside the worktree created in Step 1 and record whether
+it was green.
 
-### 6. Write the manifest, then commit it
+### 7. Write the manifest, then land it on the default branch
 
 To `manifest_path`. **Append, don't clobber** — if the target is an existing living design doc,
 add your sections and leave the rest intact.
@@ -109,8 +157,41 @@ add your sections and leave the rest intact.
 from no manifest: the next session reads the last committed state, and everything you learned is
 invisible to it no matter how good it was. This is not a formality — a chapter has already been
 fully grilled, written to the board, and left uncommitted, and the next session spent most of its
-budget rediscovering that the work already existed. If the project's config block names a branch
-convention, the manifest commit is the first commit on that branch.
+budget rediscovering that the work already existed.
+
+**The commit must land on the default branch, not on Step 1's worktree branch.** The manifest is
+a document *every* later branch needs, and Build cuts its own branch or worktree per slice from
+the default branch — so a manifest sitting on the prewalk branch is invisible to all of them. It
+is a feature branch's job to hold work under review; the manifest is not under review, it is the
+input to the work.
+
+The failure is silent, not loud. If a pre-grill version of the file already exists at
+`manifest_path` — which is the normal case for a project that accretes into a living design doc —
+Build reads *that* and never errors. A stale plan looks exactly like a fresh one.
+
+```
+git -C <main-checkout> pull --ff-only
+git -C <main-checkout> merge --ff-only <prewalk-branch>   # docs-only; must fast-forward
+git -C <main-checkout> push
+```
+
+**Verify from the main checkout rather than assuming** — the whole point is that the branch you
+are standing in already looks correct:
+
+```
+git -C <main-checkout> log --oneline -1 -- <manifest_path>
+grep -c "<a heading you just wrote>" <main-checkout>/<manifest_path>   # expect 1, not 0
+```
+
+If the project requires a PR to its default branch, open one for the manifest commit and **say in
+the hand-off that Build is blocked until it merges.** Never report the prewalk as finished with
+the manifest unmerged.
+
+*Incident (showbook, 2026-08-16):* the First Sign-In manifest was committed to the prewalk
+worktree's branch and left there. `grep -c` for its own heading returned 1 on the branch and **0**
+on `main`, while a superseded 12-slice version of the same file sat on `main` looking perfectly
+valid. Nothing would have errored. It was caught only because Nathan happened to ask whether he
+could start the next session from the main checkout.
 
 ---
 
@@ -130,7 +211,10 @@ the section Build actually opens it for.
           prewalked, however much prose surrounds it. If the project has a template or an
           already-shipped sibling to mirror, name the specific file per target.
     - [ ] status marker (`TODO` / `IN PROGRESS` / `DONE` / `MERGED`) the Build session can tick.
-    - [ ] GWT — verbatim by default; if you deviate, the flagged form from Step 2 (scenario titles +
+          **A slice with no scenarios of its own never gets `TODO`** — merge it or flag it for a
+          design call (Step 3). Writing "no scenarios by design" next to a buildable marker is the
+          contradiction this gate exists to catch.
+    - [ ] GWT — verbatim by default; if you deviate, the flagged form from Step 3 (scenario titles +
           slice deeplink + the reason + "the board is authoritative for the full text").
     - [ ] any board-vs-code mismatch specific to this slice.
     - [ ] anything the slice needs that isn't a slice file — arch-test allowlists, menu registration,
@@ -163,7 +247,8 @@ the section Build actually opens it for.
 - [ ] **"Target-file lists are hints; the GWT is the spec"** — stated in the manifest, so Build knows
       it is authorized to add plumbing beyond the list.
 
-- [ ] **Committed and pushed** (Step 6).
+- [ ] **Committed, pushed, and landed on the default branch** (Step 7) — verified by reading
+      `manifest_path` from the main checkout, not from the worktree you wrote it in.
 
 ---
 
@@ -171,7 +256,11 @@ the section Build actually opens it for.
 
 State clearly at the end:
 
-- the manifest path
+- the manifest path, **and the commit on the default branch that carries it** (Step 7)
+- that the next session runs **from the main checkout, not from a worktree.** Build creates its
+  own branch or worktree per slice and expects to be invoked from the default branch. Say plainly
+  that Step 1's worktree is now disposable, and name the branch and folder so they can be cleaned
+  up.
 - the exact command the next session should start with (e.g.
   `/manage-chapter --manifest <path>`), so the user can paste it into a fresh context
 - anything you deliberately left for the Build session to decide
