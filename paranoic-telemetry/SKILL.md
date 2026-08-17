@@ -76,6 +76,10 @@ The failure telemetry *is* the richness of the thrown error, since there is no l
 
 - [ ] Collaborator exceptions are caught, wrapped with rich context, and re-thrown - the wrapper exception message must include enough to diagnose the problem in production without reproducing it (e.g. identifiers, filename, calling context such as "on CsvDataCleaned" or "during startup sweep"). Assert `isInstanceOf(YourDomainException.class)`, `hasMessageContaining(id.toString())`, `hasMessageContaining("<context string>")`, and `hasCause(originalException)`.
 
+**For UI views with validation:**
+
+- [ ] Rejection is asserted as a **behavioral outcome** — submit is blocked and nothing is persisted — not as the presence of a message in one specific place. A view can surface the same rejection as field-level invalid state, a binder status label, or a notification, and which one fires depends on ordering: a field-level constraint (e.g. a `DatePicker` min/max set by a value-change listener) can mark the field invalid *before* the bean-level validator runs, leaving the status label empty while validation is working correctly. Asserting the display location makes a passing rule look like a broken one.
+
 ### Components With No Infrastructure Boundary
 
 When a component talks to nothing outside the process — a pure projector, decider, or value object — most of this checklist does not apply, and forcing it produces ceremony. Audit the **representable-input matrix** instead: take the type's fields and cross them null/non-null, present/absent, equal/unequal. Every combination the type permits is a case production will eventually hand it.
