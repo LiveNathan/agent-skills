@@ -1,12 +1,13 @@
 ---
 name: retro
-description: End-of-session reflection that improves the skills, agents, and references actually used this session - and prunes them. Run as the last step of a manager loop, or standalone when a session ends. Biased toward deletion; instruction files must not grow monotonically.
+description: End-of-session reflection that improves the skills, agents, and references actually used this session - prunes them - and flags work a script should own. Run as the last step of a manager loop, or standalone when a session ends. Biased toward deletion; instruction files must not grow monotonically.
 argument-hint: "(optional) what to focus on"
 disable-model-invocation: true
 ---
 
 Reflect on the work done in this session: how can the skills, agents, commands, and references
-used be improved for less friction and more robust, efficient work next time?
+used be improved — and what work should have been a script — for less friction and more robust,
+efficient work next time?
 
 Then **make the changes.** A retro that only reports findings is a retro whose findings evaporate.
 
@@ -31,6 +32,9 @@ Only **evidence from this session**. You watched the work happen; use what you s
 - ✅ An instruction contradicted another instruction.
 - ✅ An instruction told you to use a tool, path, or agent that doesn't exist.
 - ✅ A file, section, or rule was never consulted and nothing was lost by that.
+- ✅ Mechanical work you did by hand that a command could prove — a crank a script should own.
+  That's a **script suggestion**, not a friction. Evidence bar: it happened this session; worth
+  bar: it recurs, or it's costly enough that a one-off pays. Retro suggests; the build loop builds.
 
 Not findings:
 
@@ -58,6 +62,10 @@ happened and which file should have prevented it.
 
 Include friction *you* caused. A manager that forgot a step is evidence the step is in the wrong
 place or badly signposted.
+
+Alongside the frictions, spot the cranks: work that was *mechanical* rather than judged — a
+transform, a search, a reformat, a gate re-run by hand. If a command could prove it, it's a script
+suggestion — name it for the report (step 5).
 
 **Fix the phase that caused it, not the phase that hit it.** A worker escalating "the spec is
 under-specified" is evidence about the *upstream* step that produced the spec, not about the
@@ -100,10 +108,21 @@ RETRO
 
 Used:      <files touched>
 Frictions: <n>  (or "clean run")
+Scriptable: <n> — specs below (omit when zero)
 Removed:   <path> — <what and why>
 Changed:   <path> — <what and why>
 Added:     <path> — <what and why, and what was cut to make room>
 Net:       <+/- lines across all instruction files>
+```
+
+Each script suggestion is a spec you can copy into a build session:
+
+```
+### `bin/<name>`
+Replaced: <what you did by hand this session, and when>
+Contract: <inputs → outputs>
+Gate: <the command that proves it — test, formatter, diff>
+Example: <a small runnable sketch>
 ```
 
 **If Net is positive, justify it in one line.** Growth is allowed — the files aren't finished —
