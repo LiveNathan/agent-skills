@@ -1,6 +1,6 @@
 ---
 name: retro
-description: End-of-session reflection that improves the skills, agents, and references actually used this session - prunes them - and flags work a script should own. Run as the last step of a manager loop, or standalone when a session ends. Biased toward deletion; instruction files must not grow monotonically.
+description: End-of-session reflection that improves the skills, agents, and references actually used this session - prunes them - and flags work a script should own, and scripts used that should change. Run as the last step of a manager loop, or standalone when a session ends. Biased toward deletion; instruction files must not grow monotonically.
 argument-hint: "(optional) what to focus on"
 disable-model-invocation: true
 ---
@@ -35,6 +35,9 @@ Only **evidence from this session**. You watched the work happen; use what you s
 - ✅ Mechanical work you did by hand that a command could prove — a crank a script should own.
   That's a **script suggestion**, not a friction. Evidence bar: it happened this session; worth
   bar: it recurs, or it's costly enough that a one-off pays. Retro suggests; the build loop builds.
+- ✅ A script you ran that was friction — wrong output you patched by hand, an awkward invocation,
+  an error that said nothing. That's a **script change** (modify, improve, or remove), not a
+  friction. Same evidence bar as a script suggestion; retro specs it, the build loop applies it.
 
 Not findings:
 
@@ -51,8 +54,8 @@ inventing findings to look thorough is the failure mode here.
 
 ### 1. Inventory what was actually used
 
-List the skills, agents, references, and config the session touched. You only have standing to
-edit what you used — a file you didn't exercise, you can't judge.
+List the skills, agents, references, config, and scripts the session touched. You only have
+standing to edit what you used — a file you didn't exercise, you can't judge.
 
 ### 2. Find the frictions
 
@@ -66,6 +69,9 @@ place or badly signposted.
 Alongside the frictions, spot the cranks: work that was *mechanical* rather than judged — a
 transform, a search, a reformat, a gate re-run by hand. If a command could prove it, it's a script
 suggestion — name it for the report (step 5).
+
+Then audit the scripts you actually ran the same way — a script that was friction is a **script
+change** (modify, improve, or remove), named for the report (step 5).
 
 **Fix the phase that caused it, not the phase that hit it.** A worker escalating "the spec is
 under-specified" is evidence about the *upstream* step that produced the spec, not about the
@@ -108,21 +114,29 @@ RETRO
 
 Used:      <files touched>
 Frictions: <n>  (or "clean run")
-Scriptable: <n> — specs below (omit when zero)
+Scriptable: <n> — new-script specs below (omit when zero)
+Script changes: <n> — modify/improve/remove specs below (omit when zero)
 Removed:   <path> — <what and why>
 Changed:   <path> — <what and why>
 Added:     <path> — <what and why, and what was cut to make room>
 Net:       <+/- lines across all instruction files>
 ```
 
-Each script suggestion is a spec you can copy into a build session:
+Each script suggestion or script change is a spec you can copy into a build session:
 
 ```
-### `bin/<name>`
+### `bin/<name>` — new
 Replaced: <what you did by hand this session, and when>
 Contract: <inputs → outputs>
 Gate: <the command that proves it — test, formatter, diff>
 Example: <a small runnable sketch>
+```
+
+```
+### `bin/<name>` — modify | improve | remove
+Friction: <what the script did wrong this session, and when>
+Contract: <inputs → outputs; what must stay the same for its callers>
+Gate: <the command that proves the change — re-run the script's own gate>
 ```
 
 **If Net is positive, justify it in one line.** Growth is allowed — the files aren't finished —
