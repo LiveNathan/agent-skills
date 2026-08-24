@@ -93,7 +93,7 @@ make, because it doesn't know what happens downstream:
       chapter and run it:
 
       ```
-      python3 <this skill>/scripts/audit-element-refs.py <the spooled get_chapter json>
+      java <this skill>/scripts/audit-element-refs.java <the spooled get_chapter json>
       ```
 
       Exit 0 or the gate fails here. Do not answer this line by reading; that is how it gets
