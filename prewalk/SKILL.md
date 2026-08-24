@@ -55,14 +55,12 @@ the Supacode CLI, using the branch naming convention captured in the config bloc
 supacode repo worktree-new --branch <branch-name-per-convention> --base <default-branch>
 ```
 
-Run every remaining step in this skill — fingerprinting, file discovery, baseline suite — from
-inside that worktree, not the main checkout. The point is a clean room: no stray exploration
-files and no other session's uncommitted diffs can contaminate the baseline you are about to
-fingerprint. `supacode worktree list --focused` confirms which worktree is active.
-
-**The worktree is scratch space; the manifest is not delivered from it — see Step 7.** Build
-branches each slice off the *default* branch, so a manifest left on this feature branch is
-invisible to every one of them. This worktree is disposable the moment Step 7 lands.
+Run **fingerprinting, file discovery and the baseline suite** from inside that worktree — those
+three and no more. The point is a clean room: no stray exploration files and no other session's
+uncommitted diffs can contaminate the baseline you are about to fingerprint. The manifest itself is
+written and committed in the main checkout (Step 7), so this worktree is disposable the moment that
+lands. `supacode worktree list --focused` confirms which worktree is active — it may report the main
+checkout, so address the worktree by absolute path rather than trusting focus.
 
 If `supacode repo worktree-new` fails (no repo configured in Supacode, CLI unavailable), fall
 back to creating the branch normally per the project's convention and note the fallback in the
@@ -70,8 +68,12 @@ manifest so the Build session knows it isn't in a dedicated worktree.
 
 ### 2. Fingerprint the baseline
 
-Capture `git rev-parse HEAD`, the board chapter id + deeplink, and an ISO-8601 timestamp. The
-Build session uses these to detect that the model moved out from under the manifest.
+Capture `git rev-parse HEAD`, the board chapter id + deeplink, and an ISO-8601 timestamp **read from
+`date -u`, never inferred** — a wrong date silently mis-orders decisions against the ones already on
+the board. The Build session uses these to detect that the model moved out from under the manifest.
+
+`git rev-parse HEAD` is also worth comparing against the main checkout: the default branch may have
+moved while the grill ran, and the manifest must name the commit it was actually prewalked against.
 
 ### 3. Decompose the slices, in dependency order
 
@@ -148,50 +150,36 @@ session must not rediscover these.
 Run the project's baseline suite from inside the worktree created in Step 1 and record whether
 it was green.
 
-### 7. Write the manifest, then land it on the default branch
+### 7. Write the manifest in the MAIN CHECKOUT, and commit it there
+
+**Write and commit the manifest from the main checkout on the default branch — not in Step 1's
+worktree.** The worktree's only job was the clean baseline. The manifest is a document *every* later
+branch needs, and Build cuts its own branch per slice from the default branch, so writing it where
+it must end up removes the cross-branch transfer and its whole class of silent failure. Docs do not
+disturb the baseline, so this costs nothing. It is a feature branch's job to hold work under review;
+the manifest is not under review, it is the input to the work.
 
 To `manifest_path`. **Append, don't clobber** — if the target is an existing living design doc,
 add your sections and leave the rest intact.
 
-**Then commit and push it before the session ends.** An uncommitted manifest is indistinguishable
-from no manifest: the next session reads the last committed state, and everything you learned is
-invisible to it no matter how good it was. This is not a formality — a chapter has already been
+**Then commit and push before the session ends.** An uncommitted manifest is indistinguishable from
+no manifest: the next session reads the last committed state. Not a formality — a chapter has been
 fully grilled, written to the board, and left uncommitted, and the next session spent most of its
-budget rediscovering that the work already existed.
+budget rediscovering work that already existed.
 
-**The commit must land on the default branch, not on Step 1's worktree branch.** The manifest is
-a document *every* later branch needs, and Build cuts its own branch or worktree per slice from
-the default branch — so a manifest sitting on the prewalk branch is invisible to all of them. It
-is a feature branch's job to hold work under review; the manifest is not under review, it is the
-input to the work.
-
-The failure is silent, not loud. If a pre-grill version of the file already exists at
-`manifest_path` — which is the normal case for a project that accretes into a living design doc —
-Build reads *that* and never errors. A stale plan looks exactly like a fresh one.
+**Verify by reading it back rather than assuming.** The failure is silent, not loud: if a pre-grill
+version already exists at `manifest_path` — the normal case for a living design doc — Build reads
+*that* and never errors. A stale plan looks exactly like a fresh one.
 
 ```
-git -C <main-checkout> pull --ff-only
-git -C <main-checkout> merge --ff-only <prewalk-branch>   # docs-only; must fast-forward
-git -C <main-checkout> push
-```
-
-**Verify from the main checkout rather than assuming** — the whole point is that the branch you
-are standing in already looks correct:
-
-```
-git -C <main-checkout> log --oneline -1 -- <manifest_path>
-grep -c "<a heading you just wrote>" <main-checkout>/<manifest_path>   # expect 1, not 0
+git log --oneline -1 -- <manifest_path>
+grep -c "<a heading you just wrote>" <manifest_path>          # expect 1, not 0
+git rev-parse HEAD && git rev-parse origin/<default-branch>   # must match
 ```
 
 If the project requires a PR to its default branch, open one for the manifest commit and **say in
 the hand-off that Build is blocked until it merges.** Never report the prewalk as finished with
 the manifest unmerged.
-
-*Incident (showbook, 2026-08-16):* the First Sign-In manifest was committed to the prewalk
-worktree's branch and left there. `grep -c` for its own heading returned 1 on the branch and **0**
-on `main`, while a superseded 12-slice version of the same file sat on `main` looking perfectly
-valid. Nothing would have errored. It was caught only because Nathan happened to ask whether he
-could start the next session from the main checkout.
 
 ---
 

@@ -103,9 +103,9 @@ grep -c '<<ccr:' <the spooled file>     # 0 means you have everything
 If stubs are present, fetch that chapter in a fresh subagent (near-empty context clears the
 compression threshold) and tell it to return the text **verbatim, unsummarized** — you are going to
 append to it and write it back, so a paraphrase destroys real content. Retrying in your own context
-does not work. If you still cannot read a field, **never** call `update_element_details` or
-`update_slice_details` on it: both replace the whole field, so writing blind destroys prose you
-cannot see. Leave a comment instead — comments are additive and safe.
+does not work. If you still cannot read a field, **never** call `update_element` or `update_slice`
+on it: both replace the whole field, so writing blind destroys prose you cannot see. Use
+`append_details` / `append_description`, or leave a comment — all three are additive and safe.
 
 ### Diff the board against the code
 
@@ -118,7 +118,8 @@ abstract when you could grill it against the code.
 
 A chapter that references another's entity, event, or id almost always has decisions already made
 for it next door. Before asking the user anything, read the neighbouring chapter's **spec doc, its
-slice details, and the comments on its elements.** Two distinct payoffs, both routinely missed:
+slice details, and the comments on its elements.** Reading only the neighbour's *spec doc* does
+not count — three of these four payoffs live on the board, not in the doc:
 
 - **Resolved hotspots.** The same question raised here may already be answered there, with
   rationale the user confirmed. Re-asking wastes their attention and risks contradicting a locked
@@ -127,6 +128,15 @@ slice details, and the comments on its elements.** Two distinct payoffs, both ro
   the place that fact gets recorded is a comment on the *other* chapter's element, written by
   whoever hit it in Build. This is what separates "the design is complete" from "this can be
   built now" — see the gate's reporting rules.
+- **The canonical element spec.** The chapter that owns an event usually holds its schema, field
+  origins and stream key in the element's `details`. Write your own and you have forked the spec;
+  worse, the gate's field-traceability check then passes on your prose while the real schema sits
+  unread next door.
+- **Existing element identity.** Match the neighbour's exact element **names**, and create shared
+  elements the way that board links them, before writing descriptions. Two stickies for one event
+  drift independently and produce contradictory amendments — and renaming into a match afterward
+  does not merge them. Check with `search_elements` by name: it lists every copy, its chapter, its
+  context and its `details` side by side.
 
 ## Phase 2 — Grill, in three lenses
 
@@ -146,6 +156,13 @@ to completion. In particular the mistakes that recur:
   in a slice containing events, which means a gear driving a write slice needs its own slice.
   **Read a modeling tool's validation error as the modeling rule it is, not an API quirk to work
   around** — its message usually states the correct shape outright.
+- **The mirror of the above: a read model with no reader.** Walk every slice and name the UI or
+  Automation element that consumes its information element. An orphan — an information sticky
+  alone in a slice — passes "is it one type?" and fails the real test, so checking only the
+  command direction leaves half this defect class uncaught. The usual cause is a UI component
+  modeled as part of the page that opens it: a form opened by a grid page is its **own** element,
+  and the no-duplicate-UI rule forbids repeating the *same* sticky, not collapsing two distinct
+  components into one. Getting this wrong also mis-records the next slice's command trigger.
 - An event inside an Automation slice.
 - A "data-loading command" (`LoadOrders`) or a UI-interaction event (`ButtonClicked`).
 - Technical events that no business person would recognize as a fact.
@@ -224,10 +241,17 @@ As decisions land, put them where the project keeps them (per the config block):
 - **A glossary/domain-model entry** for any new term (invoke `domain-modeling`).
 - **The journal** for what you tried and rejected, and why.
 
-When appending to an existing board element via `update_element_details`, remember it
-**replaces** the whole details field — append to the full original text you fetched in Phase 1,
-never send just the new note. If Phase 1 could not read that text, do not write to the field at
-all; leave a comment instead.
+**Add to an element with `append_details` / `append_description`** — both are atomic and safe.
+Reach for `update_element(details:|description:)` only to *replace* text deliberately, since it
+overwrites the whole field; if Phase 1 could not read that field, leave a comment instead of
+writing it blind. `update_slice(details:)` has no append form, so send the complete corrected text.
+
+**Slice `status` tracks implementation, not design.** The vocabulary is ordered
+`draft → planned → in-progress → blocked → ready → reviewed → deployed`, so `ready` sits *after*
+`in-progress` and claims the slice has shipped. A slice that just passed this gate but has no code
+is **`planned`** — set every passing slice to that. Reserve `blocked` for a slice genuinely stalled
+on an unresolved hotspot or unbuilt dependency; one that is merely *sequenced* behind another is
+still `planned`. Inflating the status makes the board lie about the one thing it is tracking.
 
 ## Exit — the gate
 

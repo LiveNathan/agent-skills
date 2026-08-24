@@ -86,8 +86,23 @@ For every automation:
 ## 5. Scenario sufficiency
 
 Run the `slice-scenarios` skill's own "Checklist for Writing Slice Scenarios" against every
-slice. Do not duplicate it here — load it and work it. Then add the one check that skill can't
+slice. Do not duplicate it here — load it and work it. Then add the two checks that skill can't
 make, because it doesn't know what happens downstream:
+
+- [ ] **Every `:::element` reference resolves — proved mechanically, not by eye.** Re-fetch the
+      chapter and run it:
+
+      ```
+      python3 <this skill>/scripts/audit-element-refs.py <the spooled get_chapter json>
+      ```
+
+      Exit 0 or the gate fails here. Do not answer this line by reading; that is how it gets
+      answered wrongly. A renamed element orphans every reference to it in every slice at once,
+      and a reference to an element you only *described* never existed to begin with — both read
+      as authoritative and send the test-writer hunting for a sticky that is not there. Review any
+      cross-slice warnings by hand: a Given event authored by an earlier slice of this chapter is
+      fine, but an event owned by **another chapter** should be plain YAML with an attribution
+      line, never `:::element`.
 
 - [ ] **Could a test author with no access to the production code write failing tests from these
       scenarios alone?** That is literally the next step in this pipeline: `test-writer` runs
