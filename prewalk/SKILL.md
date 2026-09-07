@@ -60,7 +60,9 @@ three and no more. The point is a clean room: no stray exploration files and no 
 uncommitted diffs can contaminate the baseline you are about to fingerprint. The manifest itself is
 written and committed in the main checkout (Step 7), so this worktree is disposable the moment that
 lands. `supacode worktree list --focused` confirms which worktree is active — it may report the main
-checkout, so address the worktree by absolute path rather than trusting focus.
+checkout, so address the worktree by absolute path rather than trusting focus. Outside a Supacode
+terminal the CLI fails with `Missing repo ID` — `supacode repo list` prints the ids (URL-encoded
+repo paths); pass one as `-r <id>`.
 
 If `supacode repo worktree-new` fails (no repo configured in Supacode, CLI unavailable), fall
 back to creating the branch normally per the project's convention and note the fallback in the
@@ -131,6 +133,34 @@ Three checks turn a plausible file list into a correct one:
 Each is defined in the completeness checklist below. Run that list before you call the manifest
 done.
 
+**Write the done contract, per slice, before Build starts.**
+
+For each slice, record the checks that will decide it is finished — while the design is still hot
+and before any code exists:
+
+| Outcome | Proof command | Passes when |
+|---|---|---|
+| <the one thing that must become true> | <command> | <the exact result that settles it> |
+
+Four rules make this worth the lines it costs:
+
+- **Only slice-specific gates.** The project's standing gates — suite green, format, lint — already
+  run on every slice, and repeating them here is noise that buries the signal. Record what is true
+  of *this* slice and nothing else: the scenario that must become observable, the migration that
+  must apply, the arch-test that must now pass, the route that must answer.
+- **Every row needs a command a machine runs and a result a machine can see.** "Handles the empty
+  case" is not a gate; `./mvnw test -Dtest=FooTest#rejectsPastDate` is.
+- **One row per GWT scenario, at minimum.** A scenario with no row is a scenario nobody committed
+  to proving.
+- **Evidence is not recorded here.** Build pastes the actual command output into the PR body
+  against each row. A ticked row with no output is unmet — worse than an unticked one, which is at
+  least honest about where the work stopped.
+
+The point is *not* to catch a worker lying about a test run; the suite already does that, and it
+does it better than a checklist can. The point is that the contract is written **before**
+implementation, so a slice that quietly got smaller shows up as a row nobody could fill in —
+instead of disappearing into an end-of-session summary that only describes what was built.
+
 ### 4. Record the board-vs-code diff
 
 Slices that are already shipped despite a stale board status. Slice details that contradict a
@@ -181,6 +211,28 @@ If the project requires a PR to its default branch, open one for the manifest co
 the hand-off that Build is blocked until it merges.** Never report the prewalk as finished with
 the manifest unmerged.
 
+### 8. Finish the dispatch handoff — when the host config defines a machine trigger
+
+Some hosts wire prewalk's output straight into an automated dispatcher: the project's event-modeling
+config names a **machine trigger** — typically a label plus a pointer line in the work item's body
+that the dispatcher parses. When the config defines one, finish the handoff so the pointer parses:
+
+- **Add or repair the pointer line** in the chapter's work item body, byte-exact per the host
+  config. Idempotent: absent → add it; present but malformed → rewrite it; correct → touch nothing.
+  A dispatcher reads the body mechanically — a pointer embedded mid-sentence files a WorkItem whose
+  intake examines each work item exactly once, so the fail-closed hold then lasts forever.
+- **Order is load-bearing:** the manifest must already be committed and pushed to the default
+  branch (Step 7) before the pointer exists. The pointer is a promise that the file is there.
+- **Verify by reading the body back**, not by trusting the edit.
+
+**Stop at the label.** Applying the dispatch label enqueues automated builds — it is the human
+go-decision, not prewalk's. Report the work item as **dispatch-ready**: pointer verified, manifest
+on the default branch, label left for the human.
+
+Completion criterion: the body carries the pointer in the host's exact format, read back and
+confirmed, with the manifest it names on the default branch — and the dispatch label applied only
+by the human's explicit go.
+
 ---
 
 ## Manifest content — the completeness checklist
@@ -204,6 +256,8 @@ the section Build actually opens it for.
           contradiction this gate exists to catch.
     - [ ] GWT — verbatim by default; if you deviate, the flagged form from Step 3 (scenario titles +
           slice deeplink + the reason + "the board is authoritative for the full text").
+    - [ ] **Done contract** — the slice-specific proof table (Step 3): outcome, proof command,
+          passes-when, one row per GWT scenario at minimum. Standing project gates excluded.
     - [ ] any board-vs-code mismatch specific to this slice.
     - [ ] anything the slice needs that isn't a slice file — arch-test allowlists, menu registration,
           config, a shared type another slice will also want.
@@ -245,6 +299,8 @@ the section Build actually opens it for.
 State clearly at the end:
 
 - the manifest path, **and the commit on the default branch that carries it** (Step 7)
+- the **dispatch handoff**: pointer line written and verified (Step 8), the work item
+  **dispatch-ready**, and the dispatch label left for the human go-decision
 - that the next session runs **from the main checkout, not from a worktree.** Build creates its
   own branch or worktree per slice and expects to be invoked from the default branch. Say plainly
   that Step 1's worktree is now disposable, and name the branch and folder so they can be cleaned
