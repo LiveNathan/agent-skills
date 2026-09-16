@@ -197,7 +197,10 @@ substitute gate is usable.
 worktree.** The manifest is a document *every* later branch needs, and Build cuts its branch per
 slice from the default branch, so writing it where it must end up removes the cross-branch transfer
 and its whole class of silent failure. It is a feature branch's job to hold work under review; the
-manifest is not under review, it is the input to the work.
+manifest is not under review, it is the input to the work. **Unless the host's parallel-writer rule
+says otherwise** — showbook sends any session that is not the sole writer into a `wt` worktree, and a
+prewalk's board/docs writes count: land it from there instead, and confirm the manifest is on the
+default branch before Step 8.
 
 To `manifest_path`. **Append, don't clobber** — if the target is an existing living design doc,
 add your sections and leave the rest intact.
