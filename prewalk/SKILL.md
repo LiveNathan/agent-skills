@@ -48,25 +48,26 @@ If there's no config block, ask once and offer to write it into `CLAUDE.md`.
 
 ### 1. Start a new worktree — a clean room, not the manifest's home
 
-Before touching the board or the repo, create an isolated worktree for this chapter's work with
-the Supacode CLI, using the branch naming convention captured in the config block above:
-
-```
-supacode repo worktree-new --branch <branch-name-per-convention> --base <default-branch>
-```
+Before touching the board or the repo, create an isolated worktree for this chapter's work, using
+the branch naming convention captured in the config block above. **Prefer the repo's own
+provisioner when its config names one** — showbook's `bin/slice-worktree.java provision` (the
+`supacode_worktree_provision` tool) is what copies `.env`/`node_modules`, so the generic
+`supacode repo worktree-new --branch <name> --base <default-branch>` can leave a tree that will not
+build. Outside a Supacode terminal that CLI fails with `Missing repo ID` — `supacode repo list`
+prints the ids (URL-encoded repo paths); pass one as `-r <id>`.
 
 Run **fingerprinting, file discovery and the baseline suite** from inside that worktree — those
 three and no more. The point is a clean room: no stray exploration files and no other session's
 uncommitted diffs can contaminate the baseline you are about to fingerprint. The manifest itself is
 written and committed in the main checkout (Step 7), so this worktree is disposable the moment that
-lands. `supacode worktree list --focused` confirms which worktree is active — it may report the main
-checkout, so address the worktree by absolute path rather than trusting focus. Outside a Supacode
-terminal the CLI fails with `Missing repo ID` — `supacode repo list` prints the ids (URL-encoded
-repo paths); pass one as `-r <id>`.
+lands.
 
-If `supacode repo worktree-new` fails (no repo configured in Supacode, CLI unavailable), fall
-back to creating the branch normally per the project's convention and note the fallback in the
-manifest so the Build session knows it isn't in a dedicated worktree.
+**The worktree lives outside the session workspace.** Under a `workspace-write` file sandbox the
+build cannot write its `target/` there and dies on a `FileSystemException` that reads like a code
+failure — run the suite with full file access, or run it in the main checkout and say which.
+
+If every worktree route fails, create the branch normally per the project's convention and note
+the fallback in the manifest so the Build session knows it isn't in a dedicated worktree.
 
 ### 2. Fingerprint the baseline
 
@@ -113,6 +114,12 @@ Resolve it here, one of two ways:
   model happened to draw as two boxes. This is not slice batching (which shares a PR across slices
   that each stand alone); it is recognising a boundary that was never real.
 - **Flag it** in the manifest as needing a design call before Build, and say what is missing.
+
+**A third case looks similar and is not a defect.** A slice the gate passed that carries **no work
+in this unit** — an earlier amendment already built it and this one only *checked* it, which the
+board says in those words ("checked, nothing changes here"). Give it an explicit
+`NO-OP (verified)` marker and the reason, never a `TODO`: the failure this prevents is a Build
+session inventing a stub so it has something to do.
 
 Note the failure this prevents is *not* a slice being small. It is a slice being **empty of
 decisions**. A one-line slice with a real GWT is fine.
@@ -178,16 +185,19 @@ session must not rediscover these.
 ### 6. Preflight
 
 Run the project's baseline suite from inside the worktree created in Step 1 and record whether
-it was green.
+it was green. **Before characterising or publishing a red, check whether a fix is already in
+flight** (`git fetch` + `gh pr list --state open`) — in a repo with other writers a red baseline is
+often being fixed right now, and a prewalk published against a red that the next commit removes
+costs a corrective manifest commit and a whole suite run. Name the exact failing tests so the
+substitute gate is usable.
 
 ### 7. Write the manifest in the MAIN CHECKOUT, and commit it there
 
 **Write and commit the manifest from the main checkout on the default branch — not in Step 1's
-worktree.** The worktree's only job was the clean baseline. The manifest is a document *every* later
-branch needs, and Build cuts its own branch per slice from the default branch, so writing it where
-it must end up removes the cross-branch transfer and its whole class of silent failure. Docs do not
-disturb the baseline, so this costs nothing. It is a feature branch's job to hold work under review;
-the manifest is not under review, it is the input to the work.
+worktree.** The manifest is a document *every* later branch needs, and Build cuts its branch per
+slice from the default branch, so writing it where it must end up removes the cross-branch transfer
+and its whole class of silent failure. It is a feature branch's job to hold work under review; the
+manifest is not under review, it is the input to the work.
 
 To `manifest_path`. **Append, don't clobber** — if the target is an existing living design doc,
 add your sections and leave the rest intact.
@@ -251,9 +261,10 @@ the section Build actually opens it for.
           prewalked, however much prose surrounds it. If the project has a template or an
           already-shipped sibling to mirror, name the specific file per target.
     - [ ] status marker (`TODO` / `IN PROGRESS` / `DONE` / `MERGED`) the Build session can tick.
-          **A slice with no scenarios of its own never gets `TODO`** — merge it or flag it for a
-          design call (Step 3). Writing "no scenarios by design" next to a buildable marker is the
-          contradiction this gate exists to catch.
+          **A slice with no scenarios of its own never gets `TODO`** — merge it, flag it for a
+          design call, or mark it `NO-OP (verified)` if it carries no work in this unit (Step 3).
+          Writing "no scenarios by design" next to a buildable marker is the contradiction this gate
+          exists to catch.
     - [ ] GWT — verbatim by default; if you deviate, the flagged form from Step 3 (scenario titles +
           slice deeplink + the reason + "the board is authoritative for the full text").
     - [ ] **Done contract** — the slice-specific proof table (Step 3): outcome, proof command,
