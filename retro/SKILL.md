@@ -1,6 +1,6 @@
 ---
 name: retro
-description: End-of-session reflection that improves the skills, agents, and references actually used this session - prunes them - flags work a script should own and scripts that should change - and leaves breadcrumbs for the next session (tasks filed, session record entry, edits committed). Run as the last step of a manager loop, or standalone when a session ends. Biased toward deletion; instruction files must not grow monotonically.
+description: End-of-session reflection that improves the skills, agents, and references actually used this session - prunes them - files work a script should own and scripts that should change as issues for the host's dev cycle, with the tracker fields its rules require - and leaves breadcrumbs for the next session (tasks filed, session record entry, edits committed). Run as the last step of a manager loop, or standalone when a session ends. Biased toward deletion; instruction files must not grow monotonically.
 argument-hint: "(optional) what to focus on"
 disable-model-invocation: true
 ---
@@ -40,10 +40,10 @@ Only **evidence from this session**. You watched the work happen; use what you s
 - ✅ A file, section, or rule was never consulted and nothing was lost by that.
 - ✅ Mechanical work you did by hand that a command could prove — a crank a script should own.
   That's a **script suggestion**, not a friction. Evidence bar: it happened this session; worth
-  bar: it recurs, or it's costly enough that a one-off pays. Retro suggests; the build loop builds.
+  bar: it recurs, or it's costly enough that a one-off pays. Retro files it (step 5b); the build loop builds.
 - ✅ A script you ran that was friction — wrong output you patched by hand, an awkward invocation,
   an error that said nothing. That's a **script change** (modify, improve, or remove), not a
-  friction. Same evidence bar as a script suggestion; retro specs it, the build loop applies it.
+  friction. Same evidence bar as a script suggestion; retro files it the same way (step 5b).
 
 Not findings:
 
@@ -74,10 +74,10 @@ place or badly signposted.
 
 Alongside the frictions, spot the cranks: work that was *mechanical* rather than judged — a
 transform, a search, a reformat, a gate re-run by hand. If a command could prove it, it's a script
-suggestion — name it for the report (step 5).
+suggestion — spec it for filing (step 5b).
 
 Then audit the scripts you actually ran the same way — a script that was friction is a **script
-change** (modify, improve, or remove), named for the report (step 5).
+change** (modify, improve, or remove), spec'd the same way.
 
 **Fix the phase that caused it, not the phase that hit it.** A worker escalating "the spec is
 under-specified" is evidence about the *upstream* step that produced the spec, not about the
@@ -122,8 +122,8 @@ RETRO
 
 Used:      <files touched>
 Frictions: <n>  (or "clean run")
-Scriptable: <n> — new-script specs below (omit when zero)
-Script changes: <n> — modify/improve/remove specs below (omit when zero)
+Scriptable: <n> — filed as <#N, …> (omit when zero)
+Script changes: <n> — filed as <#N, …> (omit when zero)
 Removed:   <path> — <what and why>
 Changed:   <path> — <what and why>
 Added:     <path> — <what and why, and what was cut to make room>
@@ -131,13 +131,14 @@ Breadcrumbs: <tasks filed · session record path> (omit when zero)
 Net:       <+/- lines across all instruction files>
 ```
 
-Each script suggestion or script change is a spec you can copy into a build session:
+Each script suggestion or script change is an issue body, filed per step 5b:
 
 ```
 ### `bin/<name>` — new
 Replaced: <what you did by hand this session, and when>
 Contract: <inputs → outputs>
 Gate: <the command that proves it — test, formatter, diff>
+Wiring: <skill/agent file(s) + section to amend so the script gets called — the PR wires it in>
 Example: <a small runnable sketch>
 ```
 
@@ -147,6 +148,19 @@ Friction: <what the script did wrong this session, and when>
 Contract: <inputs → outputs; what must stay the same for its callers>
 Gate: <the command that proves the change — re-run the script's own gate>
 ```
+
+### 5b. File script work as issues for the host's dev cycle
+
+A spec that lives only in the retro report rots in a transcript. File each script suggestion and
+script change as an issue in the session's repo tracker (REST `gh api repos/<owner>/<repo>/issues`),
+body = the spec above — **with the native fields the host's own tracker rules require.** The repo's
+`AGENTS.md` beats this skill's defaults on label vocabulary, and it may treat a milestone or a
+project column as the thing that makes an issue visible at all: showbook's daily driver orders only
+by milestone due date, so an issue filed without one is backlog forever. An issue the host's tracker
+cannot see is an issue nobody works. For a **new** script, the issue's **Wiring** field names the
+skills/agent files that must learn to call it — an unwired script is dead code, so the
+implementer's PR amends those files in the same change. The report points at the issue numbers
+instead of carrying the specs.
 
 **If Net is positive, justify it in one line.** Growth is allowed — the files aren't finished —
 but it should be a decision, not an accident.
