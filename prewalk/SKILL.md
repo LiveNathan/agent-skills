@@ -175,7 +175,7 @@ manifest section, with a why-it-qualifies line per group. Build never groups on 
 absent the section, every slice is its own unit. The universal shape is: at most three consecutive
 slices; roughly ten production files across the group; one contract per group; nothing pending (no
 open hotspot or unresolved design question). The boundary rules are the host project's — for
-showbook, ADR-0083 and `.dsh/skills/manage-chapter/references/delivery-units.md`; read them there
+showbook, ADR-0084 and `.dsh/skills/manage-chapter/references/delivery-units.md`; read them there
 rather than here. The per-slice sub-loop is unchanged — the unit shares only the branch, the
 standing gates, the PR, the review round and the land round.
 
