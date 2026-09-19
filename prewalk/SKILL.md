@@ -249,13 +249,16 @@ that the dispatcher parses. When the config defines one, finish the handoff so t
   branch (Step 7) before the pointer exists. The pointer is a promise that the file is there.
 - **Verify by reading the body back**, not by trusting the edit.
 
-**Stop at the label.** Applying the dispatch label enqueues automated builds — it is the human
-go-decision, not prewalk's. Report the work item as **dispatch-ready**: pointer verified, manifest
-on the default branch, label left for the human.
+**Who applies the dispatch label is the host config's call.** Applying it enqueues automated builds,
+so the default is to stop and hand it over: report the work item as **dispatch-ready** — pointer
+verified, manifest on the default branch — and leave the label to the human. A host whose
+event-modeling config instead names the session as the applier wants you to apply it yourself, once
+this step's completion criterion holds; take that from the config, and never apply the label before
+the criterion does.
 
 Completion criterion: the body carries the pointer in the host's exact format, read back and
-confirmed, with the manifest it names on the default branch — and the dispatch label applied only
-by the human's explicit go.
+confirmed, with the manifest it names on the default branch — and the dispatch label applied by
+whoever the host config names, and only once that criterion holds.
 
 ---
 
@@ -325,7 +328,8 @@ State clearly at the end:
 
 - the manifest path, **and the commit on the default branch that carries it** (Step 7)
 - the **dispatch handoff**: pointer line written and verified (Step 8), the work item
-  **dispatch-ready**, and the dispatch label left for the human go-decision
+  **dispatch-ready**, and who applied the dispatch label — the human where the host config is silent,
+  the session itself where the config names it
 - that the next session runs **from the main checkout, not from a worktree.** Build creates its
   own branch or worktree per slice and expects to be invoked from the default branch. Say plainly
   that Step 1's worktree is now disposable, and name the branch and folder so they can be cleaned
