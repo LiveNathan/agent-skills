@@ -172,18 +172,12 @@ instead of disappearing into an end-of-session summary that only describes what 
 contract forward through the chapter** — a new event type threaded from its definition, through
 the write path, to every read side that renders it — record the grouping in a `## Delivery units`
 manifest section, with a why-it-qualifies line per group. Build never groups on its own judgment:
-absent the section, every slice is its own unit. The qualification rules are the host project's
-(showbook: ADR-0083 and `.dsh/skills/manage-chapter/references/delivery-units.md`), and the
-universal shape is: at most three consecutive slices; roughly ten production files across the
-group; one contract per group; nothing pending (no open hotspot or unresolved design question).
-The boundary follows the thread: the write path (slices changing a persisted event's shape or a
-command's semantics) gets a unit dedicated to it and never absorbs read-side or propagation
-slices; read sides group among themselves; a kernel slice (one that lands the new event plus its
-read scenarios, because a kernel-only slice would carry no GWT) may share a unit with its adjacent
-read-door slice; a verify-only or no-production-change slice attaches to an adjacent unit and
-never stands alone; unrelated business behavior never bundles, even on the same record or fixture.
-The per-slice sub-loop is unchanged — the unit shares only the branch, the standing gates, the PR,
-the review round and the land round.
+absent the section, every slice is its own unit. The universal shape is: at most three consecutive
+slices; roughly ten production files across the group; one contract per group; nothing pending (no
+open hotspot or unresolved design question). The boundary rules are the host project's — for
+showbook, ADR-0083 and `.dsh/skills/manage-chapter/references/delivery-units.md`; read them there
+rather than here. The per-slice sub-loop is unchanged — the unit shares only the branch, the
+standing gates, the PR, the review round and the land round.
 
 ### 4. Record the board-vs-code diff
 
