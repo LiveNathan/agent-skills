@@ -49,12 +49,11 @@ If there's no config block, ask once and offer to write it into `CLAUDE.md`.
 ### 1. Start a new worktree — a clean room, not the manifest's home
 
 Before touching the board or the repo, create an isolated worktree for this chapter's work, using
-the branch naming convention captured in the config block above. **Prefer the repo's own
-provisioner when its config names one** — showbook's `bin/slice-worktree.java provision` (the
-`supacode_worktree_provision` tool) is what copies `.env`/`node_modules`, so the generic
-`supacode repo worktree-new --branch <name> --base <default-branch>` can leave a tree that will not
-build. Outside a Supacode terminal that CLI fails with `Missing repo ID` — `supacode repo list`
-prints the ids (URL-encoded repo paths); pass one as `-r <id>`.
+the branch naming convention captured in the config block above. **Use the repo's own provisioner
+when its config names one** — showbook's `bin/slice-worktree.java provision` copies
+`.env`/`node_modules`; a bare `git worktree add` leaves a tree that will not build. If its
+invocation is not discoverable, the host's `wt add <slug>` works (it provisions `.env` — verified
+2026-09-25); say in the manifest which route you took.
 
 Run **fingerprinting, file discovery and the baseline suite** from inside that worktree — those
 three and no more. The point is a clean room: no stray exploration files and no other session's
@@ -124,12 +123,9 @@ session inventing a stub so it has something to do.
 Note the failure this prevents is *not* a slice being small. It is a slice being **empty of
 decisions**. A one-line slice with a real GWT is fine.
 
-*Incident:* the readiness-report chapter's "Section Data Changed" shipped a manifest entry that said
-"No scenarios of its own by design" and still got a `TODO` marker. The Build session produced a
-stub-bodied class and a 220-line `@SpringBootTest` with a spy subclass; the test-writer wrote it, the
-reviewer passed it, and Nathan caught it at PR #396. The disqualifying sentence was already written
-in the manifest — nothing was missing but the gate. The fix was a to-do-list read model that gave the
-class a real collaborator, which also closed a crash-resilience hole nobody had noticed.
+*Incident:* an earlier readiness manifest wrote "No scenarios of its own by design" and still carried
+a `TODO`; Build produced a stub class and a 220-line `@SpringBootTest` with a spy subclass, and a
+reviewer passed it (PR #396). The disqualifying sentence was already in the manifest.
 
 Three checks turn a plausible file list into a correct one:
 
@@ -264,6 +260,12 @@ the criterion does.
 Completion criterion: the body carries the pointer in the host's exact format, read back and
 confirmed, with the manifest it names on the default branch — and the dispatch label applied by
 whoever the host config names, and only once that criterion holds.
+
+**Prove the dispatcher resolves *this* slice before reporting dispatch-ready.** The pointer and the
+label promise a file is there, not that the dispatcher can read it: run whatever picks the target
+(the host's own parser or picker script) and confirm it names your slice. A pointed-at, labelled
+manifest whose slice list and markers disagree with the slice you just added resolves to an older
+one (2026-09-25: Capataz's preflight held fail-closed on a slice merged six weeks earlier).
 
 ---
 
