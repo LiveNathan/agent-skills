@@ -96,6 +96,11 @@ make, because it doesn't know what happens downstream:
       java <this skill>/scripts/audit-element-refs.java <the spooled get_chapter json>
       ```
 
+      If your host returns `get_chapter` inline instead of spooling a file (DSH's proophboard MCP,
+      observed 2026-09-24), produce the JSON yourself:
+      `java <this skill>/scripts/fetch-chapter-json.java <chapterId> <out.json>` — key from the
+      repo's `.proophboard/.env.local` or `PROOPHBOARD_API_KEY`.
+
       Exit 0 or the gate fails here. Do not answer this line by reading; that is how it gets
       answered wrongly. A renamed element orphans every reference to it in every slice at once,
       and a reference to an element you only *described* never existed to begin with — both read

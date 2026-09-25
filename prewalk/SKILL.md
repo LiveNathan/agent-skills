@@ -231,6 +231,11 @@ grep -c "<a heading you just wrote>" <manifest_path>          # expect 1, not 0
 git rev-parse HEAD && git rev-parse origin/<default-branch>   # must match
 ```
 
+Landed from a `wt` worktree (the parallel-writer path above)? The shared checkout's HEAD
+intentionally does not move, so those `rev-parse`s will disagree — that is not a failure. Verify
+against the default branch instead: `git fetch && git merge-base --is-ancestor <commit> origin/<default-branch>`,
+and read the manifest back with `git show origin/<default-branch>:<manifest_path>`.
+
 If the project requires a PR to its default branch, open one for the manifest commit and **say in
 the hand-off that Build is blocked until it merges.** Never report the prewalk as finished with
 the manifest unmerged.
