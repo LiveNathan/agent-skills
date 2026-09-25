@@ -20,9 +20,14 @@
 // attribution line, not `:::element`: adding a sticky for them would make a read slice mixed-type
 // and fork an element identity that chapter owns.
 //
-// Port note: the Python original checked group 2 (the description line) against element names, so
-// every non-empty description read as DANGLING. This port checks group 1 — the element name — which
-// is what the docstring and the completeness gate have always described.
+// Reference shape (slice-scenarios/SKILL.md): `:::element <type>` on one line, the element NAME on
+// the next. So group 1 is the type keyword and group 2 is the name — the name is what gets checked.
+//
+// Port note, corrected 2026-08-25: an earlier port switched this to group 1, on the belief that the
+// Python original was matching a description line. It was not — group 2 IS the name line. The effect
+// was that every reference in every chapter resolved as the literal word `event` / `command` /
+// `hotspot`, so a fully-consistent chapter reported five dangling slices and the gate could never
+// pass. Do not "fix" this back to group 1 without first re-reading the syntax in slice-scenarios.
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -41,8 +46,8 @@ import java.util.regex.Pattern;
 
 class AuditElementRefs {
 
-    // `:::element <name>` on one line, then the description line. Python's \w is Unicode-aware,
-    // so use [\p{L}\p{N}_] rather than the ASCII-only Java \w.
+    // `:::element <type>` on one line, then the element name on the next. Python's \w is
+    // Unicode-aware, so use [\p{L}\p{N}_] rather than the ASCII-only Java \w.
     private static final Pattern REF = Pattern.compile(
             ":::element[ \\t]+([\\p{L}\\p{N}_]+)[ \\t]*\\n[ \\t]*([^\\n]+)");
 
@@ -92,7 +97,9 @@ class AuditElementRefs {
             String details = str(s.get("details"));
             Matcher m = REF.matcher(details == null ? "" : details);
             while (m.find()) {
-                String n = m.group(1);
+                // group 2, not group 1: group 1 is the type keyword (`event`, `command`, ...),
+                // group 2 is the element name the board actually has to resolve.
+                String n = m.group(2).strip();
                 if (!allNames.contains(n)) {
                     dangling.add(n);
                 } else if (!namesHere.contains(n)) {

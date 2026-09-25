@@ -34,16 +34,18 @@ so the next session doesn't ask again.
   events, information), `schema` (field-level payload schemas), `ascii-mockups` /
   `wireframe-sketch` (UI elements). If you catch yourself writing modeling rules into this file,
   the rule probably already lives in one of those — go use it instead.
-- Run the interview per the `grilling` skill: **one question at a time**, each with your
-  recommended answer stated first, waiting for the reply before the next.
-- **Ask with the `AskUserQuestion` tool, not with prose.** Put the reasoning, evidence and
-  trade-offs in the message text above the call; the tool's `description` fields are short. Give
-  2–4 options, recommendation first, labelled `(Recommended)` — the tool supplies "Other" itself,
-  so you do not need an escape hatch. Never close a turn with an open-ended "take X, or do you
-  want Y under some condition?": it makes the user invent alternatives you should have researched.
-  If the user answers "I'll take your recommendation" more than once in a row, that is a signal
-  your question format is wrong, not that they have disengaged. The tool may be deferred — load it
-  with ToolSearch rather than falling back to prose.
+- Run the interview per the `grilling` skill: **frontier rounds** — ask every question whose
+  prerequisites are settled, each with your recommended answer stated first, then wait for the
+  user's answers before recomputing the frontier. (The `grilling` skill owns the format; do not
+  re-derive a competing one here.)
+- **Ask via the host's configured question mechanism.** If the host bans the interactive picker
+  (Nathan's grill/interview sessions do — see `~/.dsh/AGENTS.md` interaction preferences), use
+  numbered prose questions in the grilling format. Whether picker or prose: put the reasoning,
+  evidence and trade-offs in the message text; give 2–4 options, recommendation first, labelled
+  `(Recommended)`. Never close a turn with an open-ended "take X, or do you want Y under some
+  condition?": it makes the user invent alternatives you should have researched. If the user
+  answers "I'll take your recommendation" more than once in a row, that is a signal your question
+  format is wrong, not that they have disengaged.
 - **Facts you look up; decisions you ask.** If the answer is in the codebase, the board, or a
   doc — go read it. Never spend the user's attention on something you could have checked.
 - **This applies to what you write on the board, not only to what you ask.** A hotspot description

@@ -86,7 +86,7 @@ For every automation:
 ## 5. Scenario sufficiency
 
 Run the `slice-scenarios` skill's own "Checklist for Writing Slice Scenarios" against every
-slice. Do not duplicate it here — load it and work it. Then add the two checks that skill can't
+slice. Do not duplicate it here — load it and work it. Then add the three checks that skill can't
 make, because it doesn't know what happens downstream:
 
 - [ ] **Every `:::element` reference resolves — proved mechanically, not by eye.** Re-fetch the
@@ -103,6 +103,19 @@ make, because it doesn't know what happens downstream:
       cross-slice warnings by hand: a Given event authored by an earlier slice of this chapter is
       fine, but an event owned by **another chapter** should be plain YAML with an attribution
       line, never `:::element`.
+
+- [ ] **Run the coverage backwards: every rule stated anywhere in the slice has a scenario.**
+      The check above asks whether the scenarios present are *sufficient*; this one asks whether
+      any are *missing*, and only this direction catches the expensive failure. Walk the slice's
+      details, its element descriptions, and this session's own transcript, and list every
+      rejection condition, tie-breaker, ordering rule, idempotency rule, and resolved hotspot.
+      Each one must name a scenario that exercises it. A rule with no scenario is invisible
+      downstream by construction: `test-writer` derives from scenarios alone and is capped at
+      2-10 tests per slice, `implementer` codes to the tests, and `reviewer` reads the diff
+      against the spec — so behaviour nobody wrote a scenario for is simply never built, and no
+      later gate is looking for it. SKILL.md's Lens 2 states this ("a decision made in Phase 2
+      with no scenario by Phase 4 is not a decision, it is a note"); it fails HERE, where a FAIL
+      has teeth.
 
 - [ ] **Could a test author with no access to the production code write failing tests from these
       scenarios alone?** That is literally the next step in this pipeline: `test-writer` runs
