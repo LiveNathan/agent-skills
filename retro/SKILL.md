@@ -6,8 +6,7 @@ disable-model-invocation: true
 ---
 
 Reflect on the work done in this session: how can the skills, agents, commands, and references
-used be improved — and what work should have been a script — for less friction and more robust,
-efficient work next time?
+used be improved — and what work should have been a script?
 
 Then **make the changes.** A retro that only reports findings is a retro whose findings evaporate.
 
@@ -23,14 +22,20 @@ remove. If you genuinely can't, say so explicitly rather than skipping the quest
 
 ## What qualifies as a finding
 
-Only **evidence from this session**. You watched the work happen; use what you saw.
+Only **evidence from this session** — read the transcript rather than your memory of it (step 2).
 
 - ✅ A worker misread an instruction, so you had to correct it.
-- ✅ You or a worker searched for something that should have been stated up front.
+- ✅ You or a worker searched for something that should have been stated up front. The fix is a
+  **navigation pointer** where the search should have started, not a rule restating the fact.
 - ✅ A step was ambiguous and you had to guess which reading was meant.
 - ✅ A gate passed that shouldn't have, or fired when it shouldn't have.
 - ✅ An instruction contradicted another instruction.
 - ✅ An instruction told you to use a tool, path, or agent that doesn't exist.
+- ✅ A mistake an automated check could have caught. Read the repo's own check command first
+  (`package.json`/build-tool `lint`/`check` scripts, the CI workflow) — a check that already
+  exists but sits unwired or silently broken is the finding, not a reinvention. And a repo with
+  **no guardrail at all** (no pre-commit hook and no CI job running its lint/typecheck/test
+  command) is a standing finding, not a neutral default.
 - ✅ An expensive tool call a cheaper one would have covered — an MCP query returning thousands
   of tokens for one field, a broad grep where a doc pointer existed. Fix the tool or the query,
   not the instructions.
@@ -38,12 +43,11 @@ Only **evidence from this session**. You watched the work happen; use what you s
   third-party service with no readable surface. Fix the plumbing (tee a log, expose a tool, add
   a standing fact), not the instructions.
 - ✅ A file, section, or rule was never consulted and nothing was lost by that.
-- ✅ Mechanical work you did by hand that a command could prove — a crank a script should own.
-  That's a **script suggestion**, not a friction. Evidence bar: it happened this session; worth
-  bar: it recurs, or it's costly enough that a one-off pays. Retro files it (step 5b); the build loop builds.
-- ✅ A script you ran that was friction — wrong output you patched by hand, an awkward invocation,
-  an error that said nothing. That's a **script change** (modify, improve, or remove), not a
-  friction. Same evidence bar as a script suggestion; retro files it the same way (step 5b).
+- ✅ Mechanical work you did by hand that a command could prove — a crank a script should own —
+  or a script you ran that was friction: wrong output you patched by hand, an awkward invocation,
+  an error that said nothing. Both are **script work** (a suggestion, a change, or a removal),
+  not an instruction-file edit. Evidence bar: it happened this session; worth bar: it recurs, or
+  it's costly enough that a one-off pays. Retro specs it and files it (step 5b); the build loop builds.
 
 Not findings:
 
@@ -65,19 +69,18 @@ standing to edit what you used — a file you didn't exercise, you can't judge.
 
 ### 2. Find the frictions
 
-Walk the session chronologically. At each point where you corrected a worker, re-read an
-instruction, searched for something that should have been given, or hit a surprise: record what
-happened and which file should have prevented it.
+Read the primary source rather than reconstructing it from memory: the session transcript is at
+`~/.dsh/sessions/<workspace-slug>/<agentId>/session.v3.jsonl.zstd` (zstd JSONL), and a worker's
+own transcript holds that worker's side of the friction. Then walk chronologically: at each point
+where you corrected a worker, re-read an instruction, searched for something that should have
+been given, or hit a surprise — record what happened and which file should have prevented it.
 
 Include friction *you* caused. A manager that forgot a step is evidence the step is in the wrong
 place or badly signposted.
 
 Alongside the frictions, spot the cranks: work that was *mechanical* rather than judged — a
-transform, a search, a reformat, a gate re-run by hand. If a command could prove it, it's a script
-suggestion — spec it for filing (step 5b).
-
-Then audit the scripts you actually ran the same way — a script that was friction is a **script
-change** (modify, improve, or remove), spec'd the same way.
+transform, a search, a reformat, a gate re-run by hand. If a command could prove it, it's script
+work — spec it for filing (step 5b), the same as a script that was itself friction.
 
 **Fix the phase that caused it, not the phase that hit it.** A worker escalating "the spec is
 under-specified" is evidence about the *upstream* step that produced the spec, not about the
@@ -86,6 +89,14 @@ case makes things worse: it teaches it to guess. Trace each friction to where th
 should have been created and fix it there. Corollary: enforcement belongs where context is
 cheapest — a rule the reviewer can check on a diff beats one the implementer must remember
 mid-exploration.
+
+Classify a standards violation before you fix it. A **mechanical** one — a fixed syntactic
+pattern, a banned API, an import shape, a file-location rule — gets a deterministic check, full
+stop: a rule in the repo's own linter, a pre-commit hook, or a CI job, whichever is cheapest
+here, and that check is **script work** filed per step 5b, not a sentence in
+`CODING_STANDARDS.md`. Reserve the standards file for genuine **judgement calls** — cross-file
+consistency, "matches the surrounding style" — that no check could ever substitute for. Default
+to building the check over writing the rule.
 
 ### 3. Hunt for cuts — before writing any additions
 
@@ -97,8 +108,7 @@ For each file used:
 - **Duplication.** Is a rule stated in two files? Keep it in the more specific one, delete the
   other, and cross-reference if needed.
 - **Superseded rules.** Does it describe an old workflow, an old tool, an old agent topology?
-- **Rules that never fire.** A conditional whose condition has never been true is speculative
-  weight.
+- **Rules that never fire.** A conditional that has never been true is speculative weight.
 - **Stale examples.** Examples referencing merged issues or deleted files are worse than none —
   they invite pattern-matching on something no longer real.
 
@@ -107,13 +117,13 @@ For each file used:
 Apply the cuts and the additions. Preferences:
 
 - **Prefer editing over appending.** If a rule was misread, sharpen the existing sentence rather
-  than adding a clarifying one next to it. Two sentences on one topic is how contradictions form.
+  than adding a clarifying one next to it — you're amending, not rewriting, so keep the file's
+  voice and structure. Two sentences on one topic is how contradictions form.
 - **Prefer specific over general.** "Confirm a `Tests run:` count" beats "be careful with tests."
 - **Put the rule where it fires.** A constraint the worker needs belongs in the worker's file,
   not only in the manager's — workers don't read the manager's instructions.
 - **State the why for anything non-obvious.** A rule whose reason isn't given gets deleted by a
   future retro that can't see the point of it. One clause is enough.
-- **Keep the file's existing voice and structure.** You're amending, not rewriting.
 
 ### 5. Report
 
@@ -167,8 +177,6 @@ but it should be a decision, not an accident.
 
 ### 6. Route what doesn't belong in a skill file
 
-Not every learning is an instruction-file edit:
-
 - A durable decision with rationale → an ADR in the project's `adr_path`.
 - A narrative of what was tried and learned → the project's `journal_path`.
 - A fact about the domain → the glossary, via `domain-modeling`.
@@ -202,3 +210,13 @@ regardless of where it lives, and the pruning hunt in step 3 applies to it in fu
 
 **This skill owns skill edits.** Other skills hand their session learnings here rather than
 carrying their own reflection step — one mechanism, and the only one biased toward deletion.
+
+## Upstream
+
+Fused 2026-10-05 with Matt Pocock's `retro` (`github.com/mattpocock/skills`,
+`skills/engineering/retro`, upstream `a7d038f6bf`). Taken: the transcript as the primary source; a
+mechanical violation gets a deterministic check rather than a rule; an absent guardrail is itself
+a finding. Rejected: his propose-only ending (presenting candidates is how findings evaporate) and
+his environment-only scope, which has no home for script work or tracker filing. **Do not install
+his over this one** — `~/.agents/skills/retro` symlinks here, so a clobber shows as a dirty file;
+re-fuse the ideas instead.
