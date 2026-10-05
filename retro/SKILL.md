@@ -1,6 +1,6 @@
 ---
 name: retro
-description: End-of-session reflection that improves the skills, agents, and references actually used this session - prunes them - files work a script should own and scripts that should change as issues for the host's dev cycle, with the tracker fields its rules require - and leaves breadcrumbs for the next session (tasks filed, session record entry, edits committed). Run as the last step of a manager loop, or standalone when a session ends. Biased toward deletion; instruction files must not grow monotonically.
+description: End-of-session reflection that improves the skills, agents, and references actually used this session - prunes them - files work a script should own and scripts that should change as issues for the host's dev cycle, with the tracker fields its rules require - leaves breadcrumbs for the next session (tasks filed, session record entry, edits committed) - and audits the always-loaded steering files against their context budget. Run as the last step of a manager loop, or standalone when a session ends. Biased toward deletion; instruction files must not grow monotonically.
 argument-hint: "(optional) what to focus on"
 disable-model-invocation: true
 ---
@@ -58,7 +58,8 @@ Not findings:
 
 **One real friction is worth more than five plausible improvements.** If the session was clean,
 the correct retro output is "clean run, no changes" plus any pruning. Say that and stop —
-inventing findings to look thorough is the failure mode here.
+inventing findings to look thorough is the failure mode here. The one exception is the
+always-loaded tier: its cost was paid this session whether or not anything went wrong.
 
 ## Process
 
@@ -67,6 +68,14 @@ inventing findings to look thorough is the failure mode here.
 List the skills, agents, references, config, and scripts the session touched. You only have
 standing to edit what you used — a file you didn't exercise, you can't judge.
 
+Then size the always-loaded tier: `wc -c ~/.dsh/AGENTS.md <repo>/AGENTS.md` (plus any `CLAUDE.md`
+that is a distinct file), against the byte budget the DSH profile's `agent-instructions` row sets
+(65536 here, 2026-10-05). Every session *and every subagent* pays for that tier, and past the
+budget it does not degrade gracefully: the renderer omits the least specific file first, leaving
+one line — `Workspace instruction budget N bytes: omitted <path>` — so the global file's rules
+silently stop reaching every session. A tier near the budget, or that marker in your own context,
+is the highest-severity finding a retro can produce, and it needs no friction to justify.
+
 ### 2. Find the frictions
 
 Read the primary source rather than reconstructing it from memory: the session transcript is at
@@ -74,8 +83,7 @@ Read the primary source rather than reconstructing it from memory: the session t
 own transcript holds that worker's side of the friction. Then walk chronologically: at each point
 where you corrected a worker, re-read an instruction, searched for something that should have
 been given, or hit a surprise — record what happened and which file should have prevented it.
-
-Include friction *you* caused. A manager that forgot a step is evidence the step is in the wrong
+Include friction *you* caused: a manager that forgot a step is evidence the step is in the wrong
 place or badly signposted.
 
 Alongside the frictions, spot the cranks: work that was *mechanical* rather than judged — a
@@ -104,21 +112,28 @@ For each file used:
 
 - **Dead references.** Does it name an agent, skill, path, command, or file that doesn't exist?
   (Verify — don't assume it exists because it's written down.) Delete or fix.
-- **Never-consulted sections.** Did you skip a section entirely and lose nothing? Candidate.
+- **Dead weight.** A section you skipped and lost nothing by; a conditional that has never been
+  true; a line that changes no behavior — "be careful", "prefer clarity", a practice the model
+  already follows; an old workflow or tool; an example pinned to a merged issue or a deleted file,
+  which invites pattern-matching on something no longer real. Read by every agent, moving none.
+- **The wrong tier.** Where a line lives is what it costs: the always-loaded files sit in the
+  context window of every session *and every subagent*; `CODING_STANDARDS.md` is read at review
+  time; docs and skills on demand, a skill costing only its description line. A review-only rule
+  belongs in the standards file, a fact in docs, the steering file keeps the pointer. Demoting a
+  paragraph is the cheapest token saved, and it changes nothing about the rule.
 - **Duplication.** Is a rule stated in two files? Keep it in the more specific one, delete the
   other, and cross-reference if needed.
-- **Superseded rules.** Does it describe an old workflow, an old tool, an old agent topology?
-- **Rules that never fire.** A conditional that has never been true is speculative weight.
-- **Stale examples.** Examples referencing merged issues or deleted files are worse than none —
-  they invite pattern-matching on something no longer real.
+- **Machine-owned text.** A marked block (`<!-- ponytail-rules:start -->` … `:end -->`) is
+  regenerated from a source repo by a sync script — hand edits there are lost, then reappear.
+  Fix the source, or leave it alone and say so.
 
 ### 4. Make the changes
 
 Apply the cuts and the additions. Preferences:
 
 - **Prefer editing over appending.** If a rule was misread, sharpen the existing sentence rather
-  than adding a clarifying one next to it — you're amending, not rewriting, so keep the file's
-  voice and structure. Two sentences on one topic is how contradictions form.
+  than adding a clarifying one next to it — you're amending, not rewriting. Two sentences on one
+  topic is how contradictions form.
 - **Prefer specific over general.** "Confirm a `Tests run:` count" beats "be careful with tests."
 - **Put the rule where it fires.** A constraint the worker needs belongs in the worker's file,
   not only in the manager's — workers don't read the manager's instructions.
@@ -132,13 +147,13 @@ RETRO
 
 Used:      <files touched>
 Frictions: <n>  (or "clean run")
-Scriptable: <n> — filed as <#N, …> (omit when zero)
-Script changes: <n> — filed as <#N, …> (omit when zero)
+Script work: <n> — new|change|removal, filed as <#N, …> (omit when zero)
 Removed:   <path> — <what and why>
 Changed:   <path> — <what and why>
 Added:     <path> — <what and why, and what was cut to make room>
 Breadcrumbs: <tasks filed · session record path> (omit when zero)
 Net:       <+/- lines across all instruction files>
+Always-on: <bytes in the always-loaded tier, of the budget> (omit when unchanged)
 ```
 
 Each script suggestion or script change is an issue body, filed per step 5b:
@@ -165,12 +180,11 @@ A spec that lives only in the retro report rots in a transcript. File each scrip
 script change as an issue in the session's repo tracker (REST `gh api repos/<owner>/<repo>/issues`),
 body = the spec above — **with the native fields the host's own tracker rules require.** The repo's
 `AGENTS.md` beats this skill's defaults on label vocabulary, and it may treat a milestone or a
-project column as the thing that makes an issue visible at all: showbook's daily driver orders only
-by milestone due date, so an issue filed without one is backlog forever. An issue the host's tracker
-cannot see is an issue nobody works. For a **new** script, the issue's **Wiring** field names the
-skills/agent files that must learn to call it — an unwired script is dead code, so the
-implementer's PR amends those files in the same change. The report points at the issue numbers
-instead of carrying the specs.
+project column as what makes an issue visible at all — showbook's daily driver orders only by
+milestone due date. An issue the host's tracker cannot see is an issue nobody works. For a **new**
+script, the issue's **Wiring** field names the skills/agent files that must learn to call it — an
+unwired script is dead code, so the implementer's PR amends those files in the same change. The
+report points at the issue numbers instead of carrying the specs.
 
 **If Net is positive, justify it in one line.** Growth is allowed — the files aren't finished —
 but it should be a decision, not an accident.
@@ -183,15 +197,15 @@ but it should be a decision, not an accident.
 - A learning about the *system being built* rather than the *process* → the event model, as an
   implementation note on the relevant board element.
 
-Skill files are for how to do the work. Don't let them absorb knowledge that belongs elsewhere —
-that's the other way these files bloat.
+Skill files are for how to do the work; knowledge that belongs elsewhere is the other way these
+files bloat.
 
 ### 7. Leave breadcrumbs for the next session
 
 Skill edits improve future sessions but record none of this one. Before closing:
 
 - **Open tasks → the tracker.** Anything this session left undone that outlives it gets filed as
-  an issue or added to the project's task list. Next steps never live only in conversation.
+  an issue — next steps never live only in conversation.
 - **One breadcrumb entry** in the project's session record — `runs/<id>.md`, `journal_path`,
   whatever the project keeps: date, one or two sentences of what happened and why, a pointer to
   the main artifact. Not a handoff document (`/handoff` writes one for a fresh agent) and not a
@@ -216,7 +230,8 @@ carrying their own reflection step — one mechanism, and the only one biased to
 Fused 2026-10-05 with Matt Pocock's `retro` (`github.com/mattpocock/skills`,
 `skills/engineering/retro`, upstream `a7d038f6bf`). Taken: the transcript as the primary source; a
 mechanical violation gets a deterministic check rather than a rule; an absent guardrail is itself
-a finding. Rejected: his propose-only ending (presenting candidates is how findings evaporate) and
-his environment-only scope, which has no home for script work or tracker filing. **Do not install
-his over this one** — `~/.agents/skills/retro` symlinks here, so a clobber shows as a dirty file;
-re-fuse the ideas instead.
+a finding; and auditing the always-loaded steering files, deepened here into the measured byte
+budget above. Rejected: his propose-only ending (presenting candidates is how findings evaporate)
+and his environment-only scope, which has no home for script work or tracker filing. **Do not
+install his over this one** — `~/.agents/skills/retro` symlinks here, so a clobber shows as a
+dirty file; re-fuse the ideas instead.
