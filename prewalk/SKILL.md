@@ -65,8 +65,11 @@ lands.
 build cannot write its `target/` there and dies on a `FileSystemException` that reads like a code
 failure — run the suite with full file access, or run it in the main checkout and say which.
 
-If every worktree route fails, create the branch normally per the project's convention and note
-the fallback in the manifest so the Build session knows it isn't in a dedicated worktree.
+**When the host's parallel-writer rule and the host's own gate disagree, the gate wins — and you
+disclose it.** A host that sends every non-sole writer into a worktree may still verify the result in
+the *default* checkout (showbook's `bin/preflight.java <repo> <manifest>`, and the tracker read that
+follows it). Do the docs work where the gate looks, and say so in the manifest rather than picking a
+room silently — the disclosure is the whole cost (2026-10-06: three writers active, no file overlap).
 
 ### 2. Fingerprint the baseline
 
@@ -249,6 +252,9 @@ that the dispatcher parses. When the config defines one, finish the handoff so t
 - **Order is load-bearing:** the manifest must already be committed and pushed to the default
   branch (Step 7) before the pointer exists. The pointer is a promise that the file is there.
 - **Verify by reading the body back**, not by trusting the edit.
+- **Read the work item with an explicit repo** (`gh issue view <n> -R <owner>/<repo>`): the proof
+  command above often runs in another checkout, and a chain that began with that `cd` leaves the next
+  tracker read there too (2026-10-06: `gh issue view 533` in capataz read capataz#533 — CLOSED).
 
 **Who applies the dispatch label is the host config's call.** Applying it enqueues automated builds,
 so the default is to stop and hand it over: report the work item as **dispatch-ready** — pointer
