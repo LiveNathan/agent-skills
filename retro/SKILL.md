@@ -79,7 +79,9 @@ is the highest-severity finding a retro can produce, and it needs no friction to
 ### 2. Find the frictions
 
 Read the primary source rather than reconstructing it from memory: the session transcript is at
-`~/.dsh/sessions/<workspace-slug>/<agentId>/session.v3.jsonl.zstd` (zstd JSONL), and a worker's
+`~/.dsh/sessions/<workspace-slug>/<agentId>/session.v4.jsonl.zstd` — **the live file is the highest
+version present, so `ls` the session directory rather than trusting the spelling; a `v3` file beside
+it is the stale one** (zstd JSONL), and a worker's
 own transcript holds that worker's side of the friction. Then walk chronologically: at each point
 where you corrected a worker, re-read an instruction, searched for something that should have
 been given, or hit a surprise — record what happened and which file should have prevented it.
