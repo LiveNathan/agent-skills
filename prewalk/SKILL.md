@@ -147,6 +147,11 @@ Three checks turn a plausible file list into a correct one:
 Each is defined in the completeness checklist below. Run that list before you call the manifest
 done.
 
+**Read every file you intend to rewrite before you write any of them.** This phase rewrites a lot of
+existing prose, and the edit tools refuse a file whose current content was only read by `cat` or
+`sed` — so a read-write-read-write loop pays that refusal once per file (2026-10-09: five refusals
+in one pass). Read the whole set first, then write.
+
 **Write the done contract, per slice, before Build starts.**
 
 For each slice, record the checks that will decide it is finished — while the design is still hot
