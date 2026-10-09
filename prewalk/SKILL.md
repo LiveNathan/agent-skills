@@ -52,8 +52,16 @@ Before touching the board or the repo, create an isolated worktree for this chap
 the branch naming convention captured in the config block above. **Use the repo's own provisioner
 when its config names one** — showbook's `bin/slice-worktree.java provision` copies
 `.env`/`node_modules`; a bare `git worktree add` leaves a tree that will not build. If its
-invocation is not discoverable, the host's `wt add <slug>` works (it provisions `.env` — verified
-2026-09-25); say in the manifest which route you took.
+invocation is not discoverable, the host's `wt add <slug>` works — but **it defaults the base to
+`main`**, so a repo whose branches come off `dev` needs `wt add --base origin/dev <slug>` or `wt
+land` will later refuse the push (2026-10-09: loomium, remove-and-recreate cost a round trip). Say
+in the manifest which route you took.
+
+**`wt add` provisions `.envrc` only.** A worker that needs `.env.local` or a working `node_modules`
+will find neither, and in a pnpm repo a symlinked store makes `pnpm exec` refuse outright — so the
+baseline may simply be unrunnable there. When it is, run the suite in the main checkout on the
+default branch and disclose that in the manifest, the same as any other deviation: the fingerprint
+and the disclosure are what the step is for, not the room.
 
 Run **fingerprinting, file discovery and the baseline suite** from inside that worktree — those
 three and no more. The point is a clean room: no stray exploration files and no other session's

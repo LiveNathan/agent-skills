@@ -111,8 +111,9 @@ on it: both replace the whole field, so writing blind destroys prose you cannot 
 
 ### Diff the board against the code
 
-Board status fields go stale and slice details drift from shipped contracts. Use `graphify query`
-(or the project's equivalent) to check whether each slice already exists, and whether its named
+Board status fields go stale and slice details drift from shipped contracts. Use the board-model
+command from the host's Event modeling config block — the only place host commands live, so this
+file names none of its own — to check whether each slice already exists, and whether its named
 types/fields match reality. Surface every mismatch in the interview. Never grill a model in the
 abstract when you could grill it against the code.
 
