@@ -78,11 +78,11 @@ is the highest-severity finding a retro can produce, and it needs no friction to
 
 ### 2. Find the frictions
 
-Read the primary source rather than reconstructing it from memory: the session transcript is at
-`~/.dsh/sessions/<workspace-slug>/<agentId>/session.v4.jsonl.zstd` — **the live file is the highest
-version present, so `ls` the session directory rather than trusting the spelling; a `v3` file beside
-it is the stale one** (zstd JSONL), and a worker's
-own transcript holds that worker's side of the friction. Then walk chronologically: at each point
+Read the primary source rather than reconstructing it from memory: the session is
+`$DSH_SESSION_ID` (already in the shell env — no directory-walking), so the transcript is
+`~/.dsh/sessions/<workspace-slug>/$DSH_SESSION_ID/session.v4.jsonl.zstd`, zstd JSONL whose top-level
+`type` is `tool/call`, `tool/result` or `assistant/message` (only the last version number is live; a
+`v3` file beside a `v4` is stale). A worker's own transcript holds that worker's side of the friction. Then walk chronologically: at each point
 where you corrected a worker, re-read an instruction, searched for something that should have
 been given, or hit a surprise — record what happened and which file should have prevented it.
 Include friction *you* caused: a manager that forgot a step is evidence the step is in the wrong
@@ -220,6 +220,10 @@ Skill edits improve future sessions but record none of this one. Before closing:
 Default to the **project-local** files under `.claude/`. Only touch global files
 (`~/.agents/skills/`, `~/AGENTS.md`) when the friction is genuinely project-independent — and
 say so explicitly when you do, since it affects every other project.
+
+Skill files usually live **outside** the session workspace (`~/.dsh/skills/*` symlink into their own
+repos), so a `workspace-write` sandbox denies the edits: take one escalation for the edits *and* the
+commit, or run the retro in a full-access session — never report findings instead of making them.
 
 When invoked with an explicit target (`/retro ~/.agents/skills/foo`), that target is in scope
 regardless of where it lives, and the pruning hunt in step 3 applies to it in full.
