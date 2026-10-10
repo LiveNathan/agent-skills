@@ -10,7 +10,10 @@
 //     java audit-element-refs.java <get_chapter-json>    # the file get_chapter spooled to disk
 //     get_chapter ... | java audit-element-refs.java -   # or piped
 //
-// Exit 0 = every reference resolves. Exit 1 = at least one does not.
+// Self-check (both forms + the inline-dangling fixture): bash audit-element-refs.test.sh
+//
+// Exit 0 = every reference is fenced-form and resolves (or there are none). Exit 1 = at least one
+// name does not resolve, or at least one reference uses the unverifiable inline form.
 //
 // DANGLING is always a failure: the name matches no element anywhere in the chapter.
 //
@@ -20,14 +23,27 @@
 // attribution line, not `:::element`: adding a sticky for them would make a read slice mixed-type
 // and fork an element identity that chapter owns.
 //
-// Reference shape (slice-scenarios/SKILL.md): `:::element <type>` on one line, the element NAME on
-// the next. So group 1 is the type keyword and group 2 is the name — the name is what gets checked.
+// Two reference forms, both matched here; group 1 is the type keyword and group 2 the name in each,
+// because the name is what gets checked:
 //
-// Port note, corrected 2026-08-25: an earlier port switched this to group 1, on the belief that the
-// Python original was matching a description line. It was not — group 2 IS the name line. The effect
-// was that every reference in every chapter resolved as the literal word `event` / `command` /
-// `hotspot`, so a fully-consistent chapter reported five dangling slices and the gate could never
-// pass. Do not "fix" this back to group 1 without first re-reading the syntax in slice-scenarios.
+//   fenced (documented, slice-scenarios/SKILL.md):  :::element <type>\n<Name>
+//   inline (legacy, undocumented):                  :::element <type> <Name> :::
+//
+// Port note, corrected 2026-08-25: an earlier port switched the fenced pattern to group 1, on the
+// belief that the Python original was matching a description line. It was not — group 2 IS the name
+// line. The effect was that every reference in every chapter resolved as the literal word `event` /
+// `command` / `hotspot`, so a fully-consistent chapter reported five dangling slices and the gate
+// could never pass. Do not "fix" this back to group 1 without first re-reading the syntax in
+// slice-scenarios.
+//
+// Inline note, added 2026-10-10: the inline form was invisible to the fenced-only pattern, so a
+// chapter with 10 fenced and 5 inline references audited 10 and printed "all :::element references
+// resolve" — the gate answering a question it had not asked (loomium `Update Settings`). Inline
+// references are now name-checked too. The inline form appears in no board documentation and is not
+// the fenced form the skill defines, so a resolving inline reference is reported as UNVERIFIABLE and
+// fails closed: an unverifiable reference is a report, not a pass. Convert inline references to the
+// fenced form. If prooph board is later confirmed to resolve the inline form, downgrade this to a
+// warning — do not silently stop reporting it.
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -46,10 +62,15 @@ import java.util.regex.Pattern;
 
 class AuditElementRefs {
 
-    // `:::element <type>` on one line, then the element name on the next. Python's \w is
+    // Fenced: `:::element <type>` on one line, then the element name on the next. Python's \w is
     // Unicode-aware, so use [\p{L}\p{N}_] rather than the ASCII-only Java \w.
-    private static final Pattern REF = Pattern.compile(
+    private static final Pattern REF_FENCED = Pattern.compile(
             ":::element[ \\t]+([\\p{L}\\p{N}_]+)[ \\t]*\\n[ \\t]*([^\\n]+)");
+
+    // Inline (legacy): `:::element <type> <name> :::` all on one line. Non-greedy so a single line
+    // with two inline references yields two matches, each stopping at its own closing `:::`.
+    private static final Pattern REF_INLINE = Pattern.compile(
+            ":::element[ \\t]+([\\p{L}\\p{N}_]+)[ \\t]+([^\\n]+?)[ \\t]*:::");
 
     private static final String USAGE = """
             Usage:
@@ -90,28 +111,43 @@ class AuditElementRefs {
 
         int failed = 0;
         int warned = 0;
+        int unverifiable = 0;
+        int checked = 0;
+        int fenced = 0;
+        int inline = 0;
         for (Map<String, Object> s : slices) {
             Set<String> namesHere = bySlice.getOrDefault(s.get("id"), Set.of());
             Set<String> dangling = new TreeSet<>();
             Set<String> cross = new TreeSet<>();
+            Set<String> inlineHere = new TreeSet<>();
             String details = str(s.get("details"));
-            Matcher m = REF.matcher(details == null ? "" : details);
-            while (m.find()) {
+            for (Ref r : refs(details == null ? "" : details)) {
+                checked++;
+                if (r.inline()) {
+                    inline++;
+                    inlineHere.add(r.name());
+                } else {
+                    fenced++;
+                }
                 // group 2, not group 1: group 1 is the type keyword (`event`, `command`, ...),
                 // group 2 is the element name the board actually has to resolve.
-                String n = m.group(2).strip();
-                if (!allNames.contains(n)) {
-                    dangling.add(n);
-                } else if (!namesHere.contains(n)) {
-                    cross.add(n);
+                if (!allNames.contains(r.name())) {
+                    dangling.add(r.name());
+                } else if (!namesHere.contains(r.name())) {
+                    cross.add(r.name());
                 }
             }
-            if (!dangling.isEmpty() || !cross.isEmpty()) {
+            if (!dangling.isEmpty() || !cross.isEmpty() || !inlineHere.isEmpty()) {
                 System.out.println("[" + s.get("index") + "] " + s.get("label"));
             }
             if (!dangling.isEmpty()) {
                 failed++;
                 System.out.println("    DANGLING — matches no element in this chapter: " + dangling);
+            }
+            if (!inlineHere.isEmpty()) {
+                unverifiable++;
+                System.out.println("    UNVERIFIABLE — inline form is not documented board syntax,"
+                        + " so the board may not resolve these: " + inlineHere);
             }
             if (!cross.isEmpty()) {
                 warned++;
@@ -120,16 +156,43 @@ class AuditElementRefs {
         }
 
         int n = slices.size();
-        if (failed > 0) {
-            System.out.printf("%nFAIL — %d slice(s) with dangling references across %d slices%n", failed, n);
+        String counts = checked + " reference" + (checked == 1 ? "" : "s") + " checked across " + n
+                + " slices (" + fenced + " fenced, " + inline + " inline)";
+        if (failed > 0 || unverifiable > 0) {
+            StringBuilder why = new StringBuilder();
+            if (failed > 0) {
+                why.append(failed).append(" slice(s) with dangling references");
+            }
+            if (unverifiable > 0) {
+                if (why.length() > 0) why.append(", ");
+                why.append(unverifiable).append(" slice(s) with unverifiable inline references");
+            }
+            System.out.printf("%nFAIL — %s; %s%n", counts, why);
             return 1;
         }
-        System.out.print("PASS — all :::element references resolve across " + n + " slices");
+        System.out.print("PASS — " + counts);
         if (warned > 0) {
-            System.out.print(" (" + warned + " slice(s) with cross-slice references, review each)");
+            System.out.print("; " + warned + " slice(s) with cross-slice references, review each");
         }
         System.out.println();
         return 0;
+    }
+
+    private record Ref(String type, String name, boolean inline) {}
+
+    // Both forms, name in group 2 for each. Per-slice output sorts the names into sets, so match
+    // order does not matter.
+    private static List<Ref> refs(String details) {
+        List<Ref> out = new ArrayList<>();
+        Matcher f = REF_FENCED.matcher(details);
+        while (f.find()) {
+            out.add(new Ref(f.group(1), f.group(2).strip(), false));
+        }
+        Matcher i = REF_INLINE.matcher(details);
+        while (i.find()) {
+            out.add(new Ref(i.group(1), i.group(2).strip(), true));
+        }
+        return out;
     }
 
     // get_chapter spools as [{"type": "text", "text": "<json>"}]; accept the bare object too.

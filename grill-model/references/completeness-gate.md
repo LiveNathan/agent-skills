@@ -101,7 +101,11 @@ make, because it doesn't know what happens downstream:
       `java <this skill>/scripts/fetch-chapter-json.java <chapterId> <out.json>` — key from the
       repo's `.proophboard/.env.local` or `PROOPHBOARD_API_KEY`.
 
-      Exit 0 or the gate fails here. Do not answer this line by reading; that is how it gets
+      Exit 0 or the gate fails here. The script prints how many references it checked (and how many
+      are fenced vs. inline), so a zero-reference pass is visibly zero. It fails closed on the legacy
+      inline form `:::element <type> <Name> :::`: that form is not documented board syntax, so it is
+      reported UNVERIFIABLE (exit 1) rather than silently skipped. Rewrite inline references in the
+      fenced form. Do not answer this line by reading; that is how it gets
       answered wrongly. A renamed element orphans every reference to it in every slice at once,
       and a reference to an element you only *described* never existed to begin with — both read
       as authoritative and send the test-writer hunting for a sticky that is not there. Review any

@@ -1,0 +1,15 @@
+{
+  "id": "fixture-fenced-only",
+  "name": "Fenced-only fixture",
+  "slices": [
+    {
+      "id": "slice-a",
+      "label": "Fixture slice",
+      "index": 1,
+      "details": "**When**\n\n:::element command\nDo The Thing\n\n```yaml\nx: 1\n```\n\n:::\n"
+    }
+  ],
+  "elements": [
+    { "name": "Do The Thing", "sliceId": "slice-a", "type": "command" }
+  ]
+}

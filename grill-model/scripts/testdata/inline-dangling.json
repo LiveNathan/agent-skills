@@ -1,0 +1,15 @@
+{
+  "id": "fixture-inline-dangling",
+  "name": "Inline dangling reference fixture",
+  "slices": [
+    {
+      "id": "slice-a",
+      "label": "Fixture slice",
+      "index": 1,
+      "details": "**When** :::element command Ghost Element ::: is issued.\n\n**Then**\n\n:::element event\nThing Was Done\n\n```yaml\nok: true\n```\n\n:::\n"
+    }
+  ],
+  "elements": [
+    { "name": "Thing Was Done", "sliceId": "slice-a", "type": "event" }
+  ]
+}

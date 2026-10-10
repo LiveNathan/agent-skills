@@ -1,0 +1,8 @@
+{
+  "id": "fixture-empty",
+  "name": "Zero-reference fixture",
+  "slices": [
+    { "id": "slice-a", "label": "Fixture slice", "index": 1, "details": "No references here." }
+  ],
+  "elements": []
+}
