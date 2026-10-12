@@ -204,6 +204,21 @@ literally the next step in the pipeline. Two consequences worth pushing hard on:
   operation, invalid state, already-done/idempotent, permission denied, missing data. A command
   with no stated failure mode is under-specified, not infallible.
 
+**Calibration for how hard to push this lens, from a measured chapter (2026-10-12, `Provision
+Stage-Change Workflow`).** Across its seven built slices the Build pass logged **7 genuine
+"GWT under-specified" escalations and 0 false ones** — consistently about one per slice, and each
+one a real hole (a wire field's source, an unmeasured action-type id, the transport a browser page
+uses to reach an HMAC-gated route). Read that frequency as *the gate is working*, not as a reason to
+demand every scenario up front: the complementary count was **17 input-matrix gaps** — defects the
+telemetry and review passes found that no scenario covered — and the guidance for those is
+explicitly *not* more GWT. They are representable-input combinations, the scenarios were complete
+without them, and the fix belongs in the Build-side telemetry pass.
+
+So the two counts point in opposite directions and must not be conflated: **a genuine GWT
+under-specification is this lens's failure and belongs here; an input-matrix gap is not.** Do not
+answer a Build-side input-matrix gap by writing more scenarios — that bloats the model with
+combinatorics that belong in tests, and leaves the real gap (forcing the failure paths) untouched.
+
 For automations, the skill's scenario types don't cover one thing — add it: what triggers it,
 what it reads, its rule, **and its termination policy** (what happens on failure, and does it
 retry forever?).
