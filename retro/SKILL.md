@@ -69,12 +69,17 @@ List the skills, agents, references, config, and scripts the session touched. Yo
 standing to edit what you used — a file you didn't exercise, you can't judge.
 
 Then size the always-loaded tier: `wc -c ~/.dsh/AGENTS.md <repo>/AGENTS.md` (plus any `CLAUDE.md`
-that is a distinct file), against the byte budget the DSH profile's `agent-instructions` row sets
-(65536 here, 2026-10-05). Every session *and every subagent* pays for that tier, and past the
-budget it does not degrade gracefully: the renderer omits the least specific file first, leaving
-one line — `Workspace instruction budget N bytes: omitted <path>` — so the global file's rules
-silently stop reaching every session. A tier near the budget, or that marker in your own context,
-is the highest-severity finding a retro can produce, and it needs no friction to justify.
+that is a distinct file) against the byte budget the DSH profile's `agent-instructions` row sets
+(65536 here). **Only those four names are in that chain** — `AGENTS.local.md`/`CLAUDE.local.md`
+too, and nothing else: a repo's `CODING_STANDARDS.md` or `docs/` is not part of this tier however
+central it looks, so do not count it. Every session *and every subagent* pays for this tier, and
+past the budget the renderer **omits the broader files first** — the user-global `AGENTS.md` is the
+first to go — and truncates the most specific one last, with a `Workspace instructions were omitted
+or truncated to fit the configured byte budget.` line in place of what it dropped. A tier near the
+budget, or that line in your own context, is the highest-severity finding a retro can produce, and
+it needs no friction to justify. *Checked 2026-10-12 against the package's own README and source
+(`dsh-agent-instructions` `lib/index.js`): an earlier version of this paragraph had the omission
+order backwards, which inverts which file a session should go trim.*
 
 ### 2. Find the frictions
 
