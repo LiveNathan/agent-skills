@@ -204,20 +204,34 @@ literally the next step in the pipeline. Two consequences worth pushing hard on:
   operation, invalid state, already-done/idempotent, permission denied, missing data. A command
   with no stated failure mode is under-specified, not infallible.
 
-**Calibration for how hard to push this lens, from a measured chapter (2026-10-12, `Provision
-Stage-Change Workflow`).** Across its seven built slices the Build pass logged **7 genuine
-"GWT under-specified" escalations and 0 false ones** — consistently about one per slice, and each
-one a real hole (a wire field's source, an unmeasured action-type id, the transport a browser page
-uses to reach an HMAC-gated route). Read that frequency as *the gate is working*, not as a reason to
-demand every scenario up front: the complementary count was **17 input-matrix gaps** — defects the
-telemetry and review passes found that no scenario covered — and the guidance for those is
-explicitly *not* more GWT. They are representable-input combinations, the scenarios were complete
-without them, and the fix belongs in the Build-side telemetry pass.
+**Calibration for how hard to push this lens, from a measured chapter (2026-10-13, `Provision
+Stage-Change Workflow`, all ten slices).** The Build pass logged **13 genuine "GWT under-specified"
+escalations and 0 false ones** across the chapter — more than one per slice — against **25
+input-matrix gaps**. A genuine escalation means the model did not answer a question a builder needed:
+each is a hole that cost a design round, and "0 false" only says the workers escalated honestly, not
+that this lens was complete. **More than roughly one genuine escalation per chapter is this lens
+failing**, and the fix is the four checks below — never more scenarios up front. An input-matrix gap
+is still not this lens's: it is a representable-input combination the scenarios were complete
+without, and its fix remains the Build-side telemetry pass.
 
-So the two counts point in opposite directions and must not be conflated: **a genuine GWT
-under-specification is this lens's failure and belongs here; an input-matrix gap is not.** Do not
-answer a Build-side input-matrix gap by writing more scenarios — that bloats the model with
-combinatorics that belong in tests, and leaves the real gap (forcing the failure paths) untouched.
+**The four checks those 13 escalations named — each a question the model must be able to answer
+before a slice leaves the gate; none is "write more scenarios":**
+
+1. **Where every written value comes from.** A command or event field named without its source is
+   under-specified. Recurring instances: a UI value the command takes as an id while the UI holds
+   only a name; a `name` a request body needs with no stated owner; a field the copy names that the
+   event does not carry (`flowName` on `Unfireable Workflow Reported`); a field a slice asserts the
+   event carries and its schema does not (`elementDefId`).
+2. **A prerequisite the model leaves as "still to measure" is a gate failure** unless the model
+   names the probe that settles it. Two instances: the definitions-filter read route (two
+   candidates, neither measured) and the gate step's `actionTypeId`/`actionTypeVersion` — where the
+   measurement then invalidated the board's own design.
+3. **Prose and scenario must not contradict each other.** Two instances: a slice whose prose said
+   the reads wait for `Continue` while its own scenarios require the table on screen on entry; a
+   command whose input list named `statusId` while its own data-flow trace resolved that id from the
+   status name.
+4. **Every file, symbol and path the model names must exist.** Three instances: a named Playwright
+   spec that does not exist; `oauth/callback.ts` as the wrong call site; a `bytesrc/…` typo.
 
 For automations, the skill's scenario types don't cover one thing — add it: what triggers it,
 what it reads, its rule, **and its termination policy** (what happens on failure, and does it
