@@ -1,6 +1,6 @@
 ---
 name: prewalk
-description: Bridge a hardened event model to execution. Captures the design trajectory as a structured manifest so the Build session skips reconnaissance and starts with the answers. Run at the end of a /grill-model session, while the context is still hot.
+description: Bridge a hardened event model to execution. Captures the design trajectory as a structured manifest so the Build session skips reconnaissance and starts with the answers. Run at the end of a /grill-model session, once the model it gated is approved — while the context is still hot.
 argument-hint: "Chapter title or deeplink"
 ---
 
