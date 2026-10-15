@@ -1,6 +1,6 @@
 ---
 name: grill-model
-description: Harden an event model until it passes the information-completeness gate. The Validate phase of Storm-Design-Validate-Build - run it after sketching a chapter on prooph board and before any code is written. Ends by handing off to /prewalk.
+description: Harden an event model until it passes the information-completeness gate. The Validate phase of Storm-Design-Validate-Build - run it after sketching a chapter on prooph board and before any code is written. Stops at the gate — /prewalk runs once you approve the model.
 argument-hint: "Chapter deeplink, chapter title, or issue URL"
 ---
 
@@ -295,8 +295,9 @@ a confident-sounding pass. Its `BUILDABLE NOW` line is a *different question* fr
 COMPLETE`; answering only the second is how a Build session meets missing infrastructure at the
 worst possible moment.
 
-- **Any slice that PASSED** → run `/prewalk` in this same session, while the context is hot,
-  covering exactly those slices — **provided the code baseline is stable.** See below.
+- **Any slice that PASSED** → **report the verdict and stop.** Prewalk waits for the user's
+  go-ahead: they read the model first, and the session resumes for `/prewalk` on their word, covering
+  exactly those slices — **provided the code baseline is stable.** See below.
 - **Any slice that FAILED** → list precisely what's missing as Hotspots on the board, and record
   it in the manifest as blocked with the hotspot that blocks it. It does not get prewalked and
   it does not get built.
