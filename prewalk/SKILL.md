@@ -337,8 +337,12 @@ the section Build actually opens it for.
 - [ ] **Guardrails & non-goals** — constraints, known pre-existing red (file + test name + substitute
       gate), explicit out-of-scope.
 
-- [ ] **Approved decisions** — what was settled during grilling, *with the why*. A decision without
-      its rationale gets overturned by the next plausible-sounding argument.
+- [ ] **Approved decisions** — what was settled during grilling, with the *why* **and its
+      provenance**: `code` (you read it), `person` (the user said it), `assumed` (neither — you
+      inferred it). A decision without its rationale gets overturned by the next plausible-sounding
+      argument; a decision without its provenance cannot be challenged by the right party. Build may
+      re-derive a `code` or `person` row but must not quietly override one, and an `assumed` row is a
+      Hot Spot that never reached the board — name it as such rather than presenting it as settled.
 
 - [ ] **"Target-file lists are hints; the GWT is the spec"** — stated in the manifest, so Build knows
       it is authorized to add plumbing beyond the list.
