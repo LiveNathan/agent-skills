@@ -117,6 +117,15 @@ file names none of its own — to check whether each slice already exists, and w
 types/fields match reality. Surface every mismatch in the interview. Never grill a model in the
 abstract when you could grill it against the code.
 
+**Scope the diff; don't re-verify the whole board.** If the chapter's design record already names a
+commit it was last verified against (showbook's spec carries `- **Base commit:**` in its Execution
+manifest), the code question is not "does the board match the code" but "what moved since then":
+`git log --oneline <base>..HEAD -- <the packages this chapter owns>` and `git diff --stat`. Re-verify
+only the slices those commits touch, and say which ones you skipped and why. An unreachable base
+(squashed or rebased away) is not a clean board — say so and run a full pass instead. When the pass
+ends, record the commit you actually verified against: a baseline someone can inherit is worth more
+than a verification nobody can date.
+
 ### Read the chapters this one borders
 
 A chapter that references another's entity, event, or id almost always has decisions already made
